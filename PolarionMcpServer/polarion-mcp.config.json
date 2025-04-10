@@ -1,0 +1,8 @@
+{
+
+    "ServerUrl": "https://your-polarion-server/",
+    "Username": "your-username",
+    "Password": "your-password",
+    "ProjectId": "your-project-id",
+    "TimeoutSeconds": 60
+}
