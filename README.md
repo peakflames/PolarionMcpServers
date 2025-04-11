@@ -57,7 +57,7 @@ MCP Tools are available for Polarion work items, including:
      tizzolicious/polarion-remote-mcp-server
    ```
 
-1. The server should now be running. You can access it at `:5090`.
+1. The server should now be running. You can access it at `http://{{your-server-ip}}:5090/sse`.
 
 ### Configuration Options
 
