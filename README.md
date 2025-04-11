@@ -11,7 +11,7 @@ MCP Tools are available for Polarion work items, including:
 - **PolarionRemoteMcpServer**: SSE-based MCP server for server based installations
 - **PolarionMcpServer**: Console-based MCP server for Polarion integration for local workstation installations
 
-## Running PolarionRemoteMcpServer with Docker via Linux Server (Recommended)
+## Running via Docker & Linux Server (Recommended)
 
 1. From your Linux server, create a directory for your configuration and logs:
 
