@@ -4,6 +4,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Version>0.1.0</Version>
 
     <!-- Size optimization -->
     <PublishSingleFile>true</PublishSingleFile>
@@ -17,7 +18,13 @@
     <!-- Globalization/Resource optimizations -->
     <InvariantGlobalization>true</InvariantGlobalization>
     <SatelliteResourceLanguages>en-US</SatelliteResourceLanguages>
-    <!-- <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator> -->
+    
+
+    <!-- Docker -->
+    <EnableSdkContainerSupport>true</EnableSdkContainerSupport>
+    <ContainerRepository>tizzolicious/polarion-remote-mcp-server</ContainerRepository>
+    <ContainerBaseImage>mcr.microsoft.com/dotnet/runtime:9.0-alpine</ContainerBaseImage>
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>   
 
   </PropertyGroup>
 
