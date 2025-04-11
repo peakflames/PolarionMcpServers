@@ -5,6 +5,12 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "C#: PolarionRemoteMcpServer Debug",
+            "type": "dotnet",
+            "request": "launch",
+            "projectPath": "${workspaceFolder}/PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj"
+        },
+        {
             "name": "Debug PolarionMcpServer",
             "type": "coreclr",
             "request": "launch",

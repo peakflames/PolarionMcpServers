@@ -1,0 +1,6 @@
+@PolarionRemoteMcpServer_HostAddress = http://localhost:5090
+
+GET {{PolarionRemoteMcpServer_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
