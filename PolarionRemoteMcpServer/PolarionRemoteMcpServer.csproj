@@ -17,15 +17,14 @@
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <!-- Globalization/Resource optimizations -->
     <InvariantGlobalization>true</InvariantGlobalization>
-    <SatelliteResourceLanguages>en-US</SatelliteResourceLanguages>
-    
+    <SatelliteResourceLanguages>en-US</SatelliteResourceLanguages>   
 
-    <!-- Docker -->
+  </PropertyGroup>
+
+  <PropertyGroup>
     <EnableSdkContainerSupport>true</EnableSdkContainerSupport>
     <ContainerRepository>tizzolicious/polarion-remote-mcp-server</ContainerRepository>
-    <ContainerBaseImage>mcr.microsoft.com/dotnet/runtime:9.0-alpine</ContainerBaseImage>
     <RuntimeIdentifier>linux-x64</RuntimeIdentifier>   
-
   </PropertyGroup>
 
   <ItemGroup>
