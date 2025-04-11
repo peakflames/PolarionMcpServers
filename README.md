@@ -130,9 +130,12 @@ dotnet build PolarionMcpServers.sln
 
 ### Building Docker Image
 
-The PolarionRemoteMcpServer project is configured with Docker .NET SDK container support. To build the Docker image:
-
 ```bash
 dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj /t:PublishContainer
 ```
 
+### Publishing to a Docker Registry
+
+```bash
+dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj /t:PublishContainer -p ContainerRegistry=your-registery
+```
