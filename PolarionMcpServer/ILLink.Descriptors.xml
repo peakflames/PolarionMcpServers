@@ -1,0 +1,27 @@
+<linker>
+  
+  <assembly fullname="System.ServiceModel.Primitives">
+    <type fullname="*" preserve="all" />
+  </assembly>
+  
+  <assembly fullname="System.Runtime.Serialization.Xml">
+    <type fullname="*" preserve="all" />
+  </assembly>
+  
+  <assembly fullname="System.Runtime.Serialization.Primitives">
+    <type fullname="*" preserve="all" />
+  </assembly>
+  
+  <assembly fullname="System.Private.DataContractSerialization">
+    <type fullname="*" preserve="all" />
+  </assembly>
+
+  
+  <!-- Preserve Polarion types needed for serialization -->
+  <assembly fullname="Polarion">
+    <type fullname="Polarion.*" preserve="all" />
+    <type fullname="Polarion.Generated.*" preserve="all" />
+    <type fullname="Polarion.Generated.Session.*" preserve="all" />
+    <type fullname="Polarion.Generated.Tracker.*" preserve="all" />
+  </assembly>
+</linker>

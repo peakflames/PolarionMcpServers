@@ -1,8 +1,8 @@
 {
 
-    "ServerUrl": "https://your-polarion-server/",
-    "Username": "your-username",
-    "Password": "your-password",
-    "ProjectId": "your-project-id",
+    "ServerUrl": "https://polarion.int.archer.com/",
+    "Username": "archer_api_access",
+    "Password": "linear-Vietnam-FLIP-212824",
+    "ProjectId": "Midnight",
     "TimeoutSeconds": 60
 }
