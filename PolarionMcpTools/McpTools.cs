@@ -1,4 +1,5 @@
-﻿using ModelContextProtocol.Server;
+﻿using Microsoft.Extensions.Logging;
+using ModelContextProtocol.Server;
 using Polarion;
 using Polarion.Generated.Tracker;
 using System.ComponentModel;
@@ -48,12 +49,15 @@ public sealed class McpTools
                 var workItemResult = await polarionClient.GetWorkItemByIdAsync(targetWorkItemId);
                 if (workItemResult.IsFailed)
                 {
-                    returnMsg = $"ERROR: Failed to fetch Polarion work item. {workItemResult.Errors.First()}";
-                
-                    return returnMsg;
+                    return $"ERROR: Failed to fetch Polarion work item '{targetWorkItemId}'.";
                 }
 
                 var workItem = workItemResult.Value;
+                if (workItem is null || workItem.id is null)
+                {
+                    return $"ERROR: Failed to fetch Polarion work item '{targetWorkItemId}'. It does not exist.";
+                }
+
                 var workItemMarkdownString = ConvertWorkItemToMarkdown(workItem);
                 combinedWorkItems.Append(workItemMarkdownString);
                 combinedWorkItems.AppendLine("");
@@ -62,21 +66,19 @@ public sealed class McpTools
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error fetching requirements: {ex.Message}");
+            returnMsg = $"ERROR: Failed to get Polarion WorkItems due to exception '{ex.Message}'\n{ex.StackTrace}";
+            return returnMsg;
         }
-
-        returnMsg = $"ERROR: Failed to get Polarion WorkItems. For unknow reason.";
-        return returnMsg;
     }
 
     [RequiresUnreferencedCode("Uses ReverseMarkdown API which requires reflection")]
     public static string ConvertWorkItemToMarkdown(WorkItem workItem)
     {
-        string description = workItem.description.content?.ToString() ?? "";
+        string description = workItem.description?.content?.ToString() ?? "Work Item description was null. Likely does not exist";
     
         try
         {
-            if (workItem.description.type == "text/html")
+            if (workItem.description?.type == "text/html")
             {
                 var converter = new ReverseMarkdown.Converter();
                 var htmlContent = workItem.description.content?.ToString() ?? "";
