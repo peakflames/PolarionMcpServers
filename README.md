@@ -52,8 +52,8 @@ MCP Tools are available for Polarion work items, including:
    ```bash
    docker run -d \
      --name polarion-mcp-server \
-     -p 5090:5090 \
-     -v ./appsettings.json:/app/appsettings.json \
+     -p 8080:8080 \
+     -v appsettings.json:/app/appsettings.json \
      tizzolicious/polarion-remote-mcp-server
    ```
 
@@ -87,9 +87,9 @@ Add the following configuration to your settings.json file:
 
 ```json
 "servers": {
-    "laurent-mcp-server": {
+    "polarion-remote": {
         "type": "sse",
-        "url": "ttp://{{your-server-ip}}:5090/sse",
+        "url": "ttp://{{your-server-ip}}:8080/sse",
         "env": {}
     }    
 }
@@ -102,11 +102,11 @@ Claude Desktop currently doesn’t support SSE, but you can use a proxy with the
 ```json
 {
   "mcpServers": {
-    "math": {
+    "polarion-remote": {
       "command": "npx",
       "args": [
         "mcp-remote",
-        "http://{{your-server-ip}}:5090/sse"
+        "http://{{your-server-ip}}:8080/sse"
       ]
     }
   }
