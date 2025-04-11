@@ -22,7 +22,7 @@ public sealed class McpTools
         IPolarionClient polarionClient,
         [Description("A comma-seperated list of WorkItem Ids")] string workItemIds)
     {
-        var returnMsg = "";
+        string? returnMsg;
         
         var workItemIdList = workItemIds.Split(',');
         if (workItemIdList.Length == 0)
@@ -55,7 +55,6 @@ public sealed class McpTools
 
                 var workItem = workItemResult.Value;
                 var workItemMarkdownString = ConvertWorkItemToMarkdown(workItem);
-                combinedWorkItems.Append($"## WorkItem (ID={targetWorkItemId})\n");
                 combinedWorkItems.Append(workItemMarkdownString);
                 combinedWorkItems.AppendLine("");
             }
@@ -74,7 +73,6 @@ public sealed class McpTools
     public static string ConvertWorkItemToMarkdown(WorkItem workItem)
     {
         string description = workItem.description.content?.ToString() ?? "";
-        // var attributes = new Dictionary<string, string>();
     
         try
         {
@@ -85,20 +83,6 @@ public sealed class McpTools
                 var markdownContent = converter.Convert(htmlContent);
                 description = markdownContent;
             }
-
-            // Process custom fields if available
-            // if (workItem.customFields != null)
-            // {
-            //     foreach (var field in workItem.customFields)
-            //     {
-            //         requirement.Properties[field.key] = field.value?.ToString() ?? "";
-            //         // if (field.value. != null && field.Value != null)
-            //         // {
-            //         //     requirement.Properties[field.Key] = field.Value.ToString();
-            //         // }
-            //     }
-            // }
-
         }
         catch (Exception ex)
         {
