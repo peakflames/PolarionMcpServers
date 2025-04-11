@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Size optimization -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <!-- <DebugType>none</DebugType> -->
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <!-- Globalization/Resource optimizations -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en-US</SatelliteResourceLanguages>
+    <!-- <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator> -->
+
+  </PropertyGroup>
+
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.Globalization.Invariant" Value="true" />
+  </ItemGroup>
+  
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.3" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="0.1.0-preview.7" />
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="9.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageReference Include="Polarion" Version="0.0.5"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PolarionMcpTools\PolarionMcpTools.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>    
+    <TrimmerRootAssembly Include="Serilog" />
+    <TrimmerRootAssembly Include="ReverseMarkdown" />
+    <TrimmerRootAssembly Include="HtmlAgilityPack" />
+    <TrimmerRootAssembly Include="Polarion" />
+  </ItemGroup>
+
+
+</Project>
