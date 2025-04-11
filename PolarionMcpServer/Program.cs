@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -18,7 +19,7 @@ public class Program
         {
             Log.Logger = new LoggerConfiguration()
                             .MinimumLevel.Verbose() // Capture all log levels
-                            .WriteTo.File(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "TestServer_.log"),
+                            .WriteTo.File(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "PolarionMcpServer_.log"),
                                 rollingInterval: RollingInterval.Day,
                                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
                             .WriteTo.Debug()
@@ -35,7 +36,7 @@ public class Program
             }
 
             var json = await File.ReadAllTextAsync(filePath);
-            var config = JsonSerializer.Deserialize<PolarionClientConfiguration>(json);
+            var config = JsonSerializer.Deserialize(json, AppConfigJsonContext.Default.PolarionClientConfiguration);
             if (config is null)
             {
                 Log.Error("Failed to load configuration");
@@ -83,7 +84,8 @@ public class Program
 
             // Add the McpServer to the DI container
             //
-            builder.Services.AddMcpServer()
+            builder.Services
+                .AddMcpServer()
                 .WithStdioServerTransport()
                 .WithTools<PolarionMcpTools.McpTools>();
 
@@ -101,4 +103,9 @@ public class Program
             return 1;
         }
     }
+}
+
+[JsonSerializable(typeof(PolarionClientConfiguration))]
+public partial class AppConfigJsonContext : JsonSerializerContext
+{
 }

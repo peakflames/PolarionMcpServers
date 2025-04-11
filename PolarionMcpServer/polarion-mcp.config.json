@@ -1,8 +1,8 @@
 {
 
-    "ServerUrl": "https://your-polarion-server/",
-    "Username": "your-username",
+    "ServerUrl": "https://polarion.int.mycompany.com/",
+    "Username": "polarion_service_user",
     "Password": "your-password",
-    "ProjectId": "your-project-id",
+    "ProjectId": "Starlight",
     "TimeoutSeconds": 60
 }

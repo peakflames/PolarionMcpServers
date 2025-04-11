@@ -8,7 +8,7 @@ using System.Text;
 
 namespace PolarionMcpTools;
 
-
+[RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
 [McpServerToolType]
 public sealed class McpTools
 {
