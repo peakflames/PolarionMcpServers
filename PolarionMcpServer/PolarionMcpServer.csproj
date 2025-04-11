@@ -48,13 +48,7 @@
     <TrimmerRootAssembly Include="Serilog" />
     <TrimmerRootAssembly Include="ReverseMarkdown" />
     <TrimmerRootAssembly Include="HtmlAgilityPack" />
-    <TrimmerRootDescriptor Include="ILLink.Descriptors.xml" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="ILLink.Descriptors.xml">
-      <LogicalName>ILLink.Descriptors.xml</LogicalName>
-    </EmbeddedResource>
+    <TrimmerRootAssembly Include="Polarion" />
   </ItemGroup>
 
 </Project>
