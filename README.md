@@ -23,7 +23,7 @@ MCP Tools are available for Polarion work items, including:
 1. Pull the Docker image:
 
    ```bash
-   docker pull tizzolicious/polarion-remote-mcp-server
+   docker pull peakflames/polarion-remote-mcp-server
    ```
 
 1. Create a tailored `/opt/polarion-mcp-server/appsettings.json` file to your Polarion configuration:
@@ -58,18 +58,19 @@ MCP Tools are available for Polarion work items, including:
    ```
 
 1. The server should now be running. You can access it at `http://{{your-server-ip}}:5090/sse`.
+1. IMPORTANT - Do NOT run with replica instances of the server as the session connection will not be shared between replicas.
 
 ### Configuration Options
 
 The `PolarionClientConfiguration` section in `appsettings.json` requires the following settings:
 
-| Setting | Description |
-|---------|-------------|
-| ServerUrl | URL of your Polarion server (e.g., "https://polarion.example.com/") |
-| Username | Polarion username with appropriate permissions |
-| Password | Password for the Polarion user |
-| ProjectId | ID of the Polarion project to access |
-| TimeoutSeconds | Connection timeout in seconds (default: 60) |
+| Setting        | Description                                                         |
+| -------------- | ------------------------------------------------------------------- |
+| ServerUrl      | URL of your Polarion server (e.g., "https://polarion.example.com/") |
+| Username       | Polarion username with appropriate permissions                      |
+| Password       | Password for the Polarion user                                      |
+| ProjectId      | ID of the Polarion project to access                                |
+| TimeoutSeconds | Connection timeout in seconds (default: 60)                         |
 
 ## Configuring MCP Clients
 
@@ -137,5 +138,5 @@ dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj /t:Publish
 ### Publishing to a Docker Registry
 
 ```bash
-dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj /t:PublishContainer -p ContainerRegistry=your-registery
+dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj /t:PublishContainer -p ContainerRegistry=your-registery /p:ContainerImageTag=my-custom-tag
 ```
