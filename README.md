@@ -131,12 +131,18 @@ dotnet build PolarionMcpServers.sln
 
 ### Building Docker Image
 
+1. Roll the version and image tag by setting the `Version` & `ContainerImageTag` properties in `PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj`
+1. Build the project and image locally:
+
 ```bash
 dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj /t:PublishContainer
 ```
 
 ### Publishing to a Docker Registry
 
+1. Roll the version and image tag by setting the `Version` & `ContainerImageTag` properties in `PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj`
+1. Build the project and image and publish to your Docker registry:
+
 ```bash
-dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj /t:PublishContainer -p ContainerRegistry=your-registery /p:ContainerImageTag=my-custom-tag
+dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj /t:PublishContainer -p ContainerRegistry=your-registery
 ```
