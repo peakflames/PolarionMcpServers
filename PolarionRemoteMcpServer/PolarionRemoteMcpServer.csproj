@@ -4,7 +4,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
 
     <!-- Size optimization -->
     <PublishSingleFile>true</PublishSingleFile>
@@ -23,7 +23,7 @@
 
   <PropertyGroup>
     <EnableSdkContainerSupport>true</EnableSdkContainerSupport>
-    <ContainerRepository>tizzolicious/polarion-remote-mcp-server</ContainerRepository>
+    <ContainerRepository>peakflames/polarion-remote-mcp-server</ContainerRepository>
     <RuntimeIdentifier>linux-x64</RuntimeIdentifier>   
   </PropertyGroup>
 
