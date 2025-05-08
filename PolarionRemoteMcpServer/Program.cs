@@ -2,9 +2,10 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+// using Microsoft.Extensions.Hosting; // Not directly used for WebApplication
+// using Microsoft.Extensions.Logging; // No longer directly used here, Serilog handles it
 using Polarion;
+using PolarionMcpTools; // Added for IPolarionClientFactory and PolarionClientFactory
 using Serilog;
 using Microsoft.Extensions.Configuration;
 
@@ -15,7 +16,7 @@ public class Program
 {
 
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
-    public static async Task<int> Main(string[] args)
+    public static int Main(string[] args)
     {
         try
         {
@@ -59,23 +60,14 @@ public class Program
                             $"Project Id: {polarionConfig.ProjectId}, " +
                             $"Timeout: {polarionConfig.TimeoutSeconds} seconds");
 
-            // Create the Polarion client
-            //
-            var polarionClientResult = await PolarionClient.CreateAsync(polarionConfig);
-            if (polarionClientResult.IsFailed)
-            {
-                throw new Exception($"Failed to create Polarion client: {polarionClientResult.Errors.First()}");
-            }
-
-            var polarionClient = polarionClientResult.Value;
-
             // Add Serilog
             //
             builder.Services.AddSerilog();
 
-            // Add the Polarion client to the DI container
+            // Add the PolarionClientConfiguration and IPolarionClientFactory to the DI container
             //
-            builder.Services.AddSingleton<IPolarionClient>(polarionClient);
+            builder.Services.AddSingleton(polarionConfig); // Register the configuration instance
+            builder.Services.AddScoped<IPolarionClientFactory, PolarionClientFactory>();
 
             // Add the McpServer to the DI container
             //
