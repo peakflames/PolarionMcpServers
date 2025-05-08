@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+- Migrate to creating the Polarion Client per Tool call to ensure the polarion client is always available and does not go stale.
+
 ## 0.1.2
 
 - Remote server has ReadWorkItems tool prompt tweaked, added error codes and improved error messages.
