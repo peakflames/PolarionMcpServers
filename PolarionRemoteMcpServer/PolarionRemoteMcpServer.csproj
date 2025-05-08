@@ -7,7 +7,7 @@
 
     <!-- Container Support -->
     <Version>0.1.2</Version>
-    <ContainerImageTag>0.1.1</ContainerImageTag>
+    <ContainerImageTag>0.1.2</ContainerImageTag>
     <EnableSdkContainerSupport>true</EnableSdkContainerSupport>
     <ContainerRepository>peakflames/polarion-remote-mcp-server</ContainerRepository>
     <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
