@@ -3,9 +3,10 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Polarion;
+using PolarionMcpTools;
 using Serilog;
+
 
 namespace PolarionMcpServer;
 
@@ -13,7 +14,7 @@ namespace PolarionMcpServer;
 public class Program
 {
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
-    public static async Task<int> Main(string[] args)
+    public static int Main(string[] args)
     {
         try
         {
@@ -35,7 +36,7 @@ public class Program
                 return 1;
             }
 
-            var json = await File.ReadAllTextAsync(filePath);
+            var json = File.ReadAllText(filePath);
             var config = JsonSerializer.Deserialize(json, AppConfigJsonContext.Default.PolarionClientConfiguration);
             if (config is null)
             {
@@ -60,16 +61,6 @@ public class Program
                 TimeoutSeconds = config.TimeoutSeconds
             };
 
-            // Create the Polarion client
-            //
-            var polarionClientResult = await PolarionClient.CreateAsync(polarionConfig);
-            if (polarionClientResult.IsFailed)
-            {
-                throw new Exception($"Failed to create Polarion client: {polarionClientResult.Errors.First()}");
-            }
-
-            var polarionClient = polarionClientResult.Value;
-
             // Create the DI container
             //
             var builder = Host.CreateApplicationBuilder(args);
@@ -78,9 +69,10 @@ public class Program
             //
             builder.Services.AddSerilog();
 
-            // Add the Polarion client to the DI container
+            // Add the PolarionClientConfiguration and IPolarionClientFactory to the DI container
             //
-            builder.Services.AddSingleton<IPolarionClient>(polarionClient);
+            builder.Services.AddSingleton(polarionConfig); // Register the configuration instance
+            builder.Services.AddScoped<IPolarionClientFactory, PolarionClientFactory>();
 
             // Add the McpServer to the DI container
             //
@@ -92,7 +84,7 @@ public class Program
             // Build and Run the McpServer
             //
             Log.Information("Starting PolarionMcpServer...");
-            await builder.Build().RunAsync();
+            builder.Build().Run();
             return 0;
         }
         catch (Exception ex)
