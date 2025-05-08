@@ -2,6 +2,7 @@
 
 ## 0.1.3
 
+- Upgrated to ModelContextProtocol 0.1.0-preview.12
 - Migrate to creating the Polarion Client per Tool call to ensure the polarion client is always available and does not go stale.
 
 ## 0.1.2

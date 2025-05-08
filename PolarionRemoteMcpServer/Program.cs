@@ -73,6 +73,7 @@ public class Program
             //
             builder.Services
                 .AddMcpServer()
+                .WithHttpTransport()
                 .WithTools<PolarionMcpTools.McpTools>();
 
             // Build and Run the McpServer
