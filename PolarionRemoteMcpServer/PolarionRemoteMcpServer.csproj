@@ -10,7 +10,7 @@
     <ContainerImageTag>0.1.3</ContainerImageTag>
     <EnableSdkContainerSupport>true</EnableSdkContainerSupport>
     <ContainerRepository>peakflames/polarion-remote-mcp-server</ContainerRepository>
-    <!-- <RuntimeIdentifier>linux-x64</RuntimeIdentifier> -->
+    <RuntimeIdentifier>linux-x64</RuntimeIdentifier>
 
     <!-- Size optimization -->
     <PublishSingleFile>true</PublishSingleFile>
