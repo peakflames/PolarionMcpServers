@@ -14,7 +14,7 @@ public sealed class McpTools
 {
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
     [McpServerTool, Description(
-                 "Request to read the latest content of one or more WorkItems by Id from a single Polarion project " +
+                 "Gets the latest text for Requirements, Test Cases, and Test Procedures by WorkItem Id (e.g., MD-12345) from" +
                  "within the Polarion Application Lifecycle Management (ALM) system. " +
                  "The tool automatically extracts the raw text and returns the raw content as a string.  " +
                  "If the WorkItem is not found or encounters errors obtaining the WorkItem it will return a descriptive error message."
@@ -28,7 +28,7 @@ public sealed class McpTools
         var workItemIdList = workItemIds.Split(',');
         if (workItemIdList.Length == 0)
         {
-            returnMsg = $"ERROR: Failed to Polarion file. The workitem '{workItemIds}' does not exist.";
+            returnMsg = $"ERROR: (100) No woritems were provided.";
             return returnMsg;
         }
 
@@ -49,13 +49,13 @@ public sealed class McpTools
                 var workItemResult = await polarionClient.GetWorkItemByIdAsync(targetWorkItemId);
                 if (workItemResult.IsFailed)
                 {
-                    return $"ERROR: Failed to fetch Polarion work item '{targetWorkItemId}'.";
+                    return $"ERROR: (101) Failed to fetch Polarion work item '{targetWorkItemId}'. Error: {workItemResult.Errors.First()}";
                 }
 
                 var workItem = workItemResult.Value;
                 if (workItem is null || workItem.id is null)
                 {
-                    return $"ERROR: Failed to fetch Polarion work item '{targetWorkItemId}'. It does not exist.";
+                    return $"ERROR: (102) Failed to fetch Polarion work item '{targetWorkItemId}'. It does not exist.";
                 }
 
                 var workItemMarkdownString = ConvertWorkItemToMarkdown(workItem);
@@ -66,7 +66,11 @@ public sealed class McpTools
         }
         catch (Exception ex)
         {
-            returnMsg = $"ERROR: Failed to get Polarion WorkItems due to exception '{ex.Message}'\n{ex.StackTrace}";
+            returnMsg = $"ERROR: Failed to get Polarion WorkItems due to exception '{ex.Message}'";
+            if (ex.InnerException != null)
+            {
+                returnMsg += $"\nInner Exception: {ex.InnerException.Message}";
+            }
             return returnMsg;
         }
     }
