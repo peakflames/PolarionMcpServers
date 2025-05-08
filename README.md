@@ -144,5 +144,6 @@ dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj /t:Publish
 1. Build the project and image and publish to your Docker registry:
 
 ```bash
-dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj /t:PublishContainer /p:PublishProfile=DefaultContainer
+dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj /t:PublishContainer
+docker push peakflames/polarion-remote-mcp-server:{{VERSION}}
 ```
