@@ -53,13 +53,13 @@ public class Program
                             $"Timeout: {config.TimeoutSeconds} seconds");
 
             var polarionConfig = new PolarionClientConfiguration
-            {
-                ServerUrl = config.ServerUrl,
-                Username = config.Username,
-                Password = config.Password,
-                ProjectId = config.ProjectId,
-                TimeoutSeconds = config.TimeoutSeconds
-            };
+            (
+                serverUrl: config.ServerUrl,
+                username: config.Username,
+                password: config.Password,
+                projectId: config.ProjectId,
+                timeoutSeconds: config.TimeoutSeconds
+            );
 
             // Create the DI container
             //

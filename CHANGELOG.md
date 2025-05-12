@@ -1,5 +1,61 @@
 # Changelog
 
+## 0.2.0
+
+- Update to support multiple projects in the same server
+  - URL Route Pattern: `https://{server}:{port}/{{ ProjectUrlAlias }}/sse`
+  - Example appsettings.json entry that will support the following routes for MCP clients:
+    - `https://{server}:{port}/starlight/sse`
+    - `https://{server}:{port}/octopus/sse`
+    - `https://{server}:{port}/grogu/sse`
+
+        ```json
+        {
+            "Logging": {
+                "LogLevel": {
+                "Default": "Information",
+                "Microsoft.AspNetCore": "Warning"
+                }
+            },
+            "AllowedHosts": "*",
+            "PolarionProjects": [
+                {
+                    "ProjectUrlAlias": "starlight", 
+                    "Default": true,
+                    "SessionConfig": { 
+                        "ServerUrl": "https://polarion.int.mycompany.com/",
+                        "Username": "shared_user_read_only",
+                        "Password": "linear-Vietnam-FLIP-212824", 
+                        "ProjectId": "Starlight_Main", 
+                        "TimeoutSeconds": 60
+                    }
+                },
+                {
+                    "ProjectUrlAlias": "octopus", 
+                    "Default": false,
+                    "SessionConfig": { 
+                        "ServerUrl": "https://polarion.int.mycompany.com/",
+                        "Username": "some_other_user",
+                        "Password": "linear-Vietnam-FLIP-212824", 
+                        "ProjectId": "octopus_gov", 
+                        "TimeoutSeconds": 60
+                    }
+                },
+                {
+                    "ProjectUrlAlias": "grogu", 
+                    "Default": false,
+                    "SessionConfig": { 
+                        "ServerUrl": "https://polarion-dev.int.mycompany.com/",
+                        "Username": "vader",
+                        "Password": "12345", 
+                        "ProjectId": "grogu_boss", 
+                        "TimeoutSeconds": 60
+                    }
+                }
+            ]
+        }
+        ```
+
 ## 0.1.3
 
 - Upgrated to ModelContextProtocol 0.1.0-preview.12

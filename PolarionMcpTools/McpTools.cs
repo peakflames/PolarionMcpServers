@@ -36,7 +36,14 @@ public sealed class McpTools
         await using (var scope = _serviceProvider.CreateAsyncScope())
         {
             var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
-            IPolarionClient polarionClient = await clientFactory.CreateClientAsync();
+            var clientResult = await clientFactory.CreateClientAsync();
+            if (clientResult.IsFailed)
+            {
+                return clientResult.Errors.First().ToString() ?? "Internal Error (3584) unknown error when creating Polarion client";
+            }
+
+            var polarionClient = clientResult.Value;
+
             var workItemIdList = workItemIds.Split(',');
             if (workItemIdList.Length == 0)
             {

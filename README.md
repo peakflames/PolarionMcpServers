@@ -37,13 +37,41 @@ MCP Tools are available for Polarion work items, including:
        }
      },
      "AllowedHosts": "*",
-     "PolarionClientConfiguration": {
-       "ServerUrl": "https://your-polarion-server/",
-       "Username": "your-username",
-       "Password": "your-password",
-       "ProjectId": "your-project-id",
-       "TimeoutSeconds": 60
-     }
+     "PolarionProjects": [
+          {
+              "ProjectUrlAlias": "starlight", 
+              "Default": true,
+              "SessionConfig": { 
+                  "ServerUrl": "https://polarion.int.mycompany.com/",
+                  "Username": "shared_user_read_only",
+                  "Password": "linear-Vietnam-FLIP-212824", 
+                  "ProjectId": "Starlight_Main", 
+                  "TimeoutSeconds": 60
+              }
+          },
+          {
+              "ProjectUrlAlias": "octopus", 
+              "Default": false,
+              "SessionConfig": { 
+                  "ServerUrl": "https://polarion.int.mycompany.com/",
+                  "Username": "some_other_user",
+                  "Password": "linear-Vietnam-FLIP-212824", 
+                  "ProjectId": "octopus_gov", 
+                  "TimeoutSeconds": 60
+              }
+          },
+          {
+              "ProjectUrlAlias": "grogu", 
+              "Default": false,
+              "SessionConfig": { 
+                  "ServerUrl": "https://polarion-dev.int.mycompany.com/",
+                  "Username": "vader",
+                  "Password": "12345", 
+                  "ProjectId": "grogu_boss", 
+                  "TimeoutSeconds": 60
+              }
+          }
+      ]
    }
    ```
 
@@ -54,23 +82,39 @@ MCP Tools are available for Polarion work items, including:
      --name polarion-mcp-server \
      -p 8080:8080 \
      -v appsettings.json:/app/appsettings.json \
-     tizzolicious/polarion-remote-mcp-server
+     peakflames/polarion-remote-mcp-server
    ```
 
-1. The server should now be running. You can access it at `http://{{your-server-ip}}:5090/sse`.
-1. IMPORTANT - Do NOT run with replica instances of the server as the session connection will not be shared between replicas.
+1. The server should now be running. MCP clients will connect using a URL specific to the desired project configuration alias: `http://{{your-server-ip}}:8080/{ProjectUrlAlias}/sse`.
+1. 📢IMPORTANT - Do NOT run with replica instances of the server as the session connection will not be shared between replicas.
 
-### Configuration Options
+### Configuration Options (`appsettings.json`)
 
-The `PolarionClientConfiguration` section in `appsettings.json` requires the following settings:
+The server uses a `PolarionProjects` array in `appsettings.json` to define one or more Polarion instance configurations. Each object in the array represents a distinct configuration accessible via a unique URL alias.
 
-| Setting        | Description                                                         |
-| -------------- | ------------------------------------------------------------------- |
-| ServerUrl      | URL of your Polarion server (e.g., "https://polarion.example.com/") |
-| Username       | Polarion username with appropriate permissions                      |
-| Password       | Password for the Polarion user                                      |
-| ProjectId      | ID of the Polarion project to access                                |
-| TimeoutSeconds | Connection timeout in seconds (default: 60)                         |
+| Top-Level Setting | Description                                                                 |
+| ----------------- | --------------------------------------------------------------------------- |
+| `PolarionProjects`  | (Array) Contains one or more Polarion project configuration objects.        |
+
+**Each Project Configuration Object:**
+
+| Setting           | Description                                                                                                | Required | Default |
+| ----------------- | ---------------------------------------------------------------------------------------------------------- | -------- | ------- |
+| `ProjectUrlAlias` | A unique string used in the connection URL (`/{ProjectUrlAlias}/sse`) to identify this configuration.        | Yes      | N/A     |
+| `Default`         | (boolean) If `true`, this configuration is used if the client connects without specifying a `ProjectUrlAlias`. Only one entry can be `true`. | No       | `false` |
+| `SessionConfig`   | (Object) Contains the specific connection details for this Polarion instance.                              | Yes      | N/A     |
+
+**`SessionConfig` Object Details:**
+
+| Setting        | Description                                                         | Required | Default |
+| -------------- | ------------------------------------------------------------------- | -------- | ------- |
+| `ServerUrl`    | URL of the Polarion server (e.g., "https://polarion.example.com/")  | Yes      | N/A     |
+| `Username`     | Polarion username with appropriate permissions.                     | Yes      | N/A     |
+| `Password`     | Password for the Polarion user. **(Consider secure alternatives)**    | Yes      | N/A     |
+| `ProjectId`    | The *actual* ID of the Polarion project to interact with.           | Yes      | N/A     |
+| `TimeoutSeconds` | Connection timeout in seconds.                                      | No       | `60`    |
+
+*Note: It is strongly recommended to use more secure methods for storing credentials (like User Secrets, Azure Key Vault, etc.) rather than placing plain text passwords in `appsettings.json`.*
 
 ## Configuring MCP Clients
 
@@ -78,9 +122,34 @@ The `PolarionClientConfiguration` section in `appsettings.json` requires the fol
 
 1. Open Cline's MCP settings UI
 1. Click the "Remote Servers" tab
-1. Set the Server name to "Polarion"
-1. Set the Server URL to "http://{{your-server-ip}}:5090/sse"
-1. Click "Add Server"
+1. For each `ProjectUrlAlias` in your `appsettings.json` that the user wants to connect to:
+
+  ```json
+  {
+    "mcpServers": {
+      ...
+      ...
+
+      "Polarion Starling": {
+        "autoApprove": [],
+        "disabled": true,
+        "timeout": 60,
+        "url": "http://{{your-server-ip}}:8080/starlight/sse",
+        "transportType": "sse"
+      },
+      "Polarion Octopus": {
+        "autoApprove": [],
+        "disabled": true,
+        "timeout": 60,
+        "url": "http://{{your-server-ip}}:8080/octopus/sse",
+      "transportType": "sse"
+      }
+    ...
+    ...
+  }
+   ```
+
+1. Repeat for each `ProjectUrlAlias` you want to connect to.
 
 **To configure Visual Studio Code:**
 
@@ -88,11 +157,17 @@ Add the following configuration to your settings.json file:
 
 ```json
 "servers": {
-    "polarion-remote": {
+    "polarion-starlight": { // Use a descriptive key
         "type": "sse",
-        "url": "ttp://{{your-server-ip}}:8080/sse",
+        "url": "http://{{your-server-ip}}:8080/starlight/sse", // Replace with your alias
         "env": {}
-    }    
+    },
+    "polarion-octopus": { 
+        "type": "sse",
+        "url": "http://{{your-server-ip}}:8080/octopus/sse", // Replace with your alias
+        "env": {}
+    }
+    // Add entries for each ProjectUrlAlias
 }
 ```
 
@@ -107,9 +182,10 @@ Claude Desktop currently doesn’t support SSE, but you can use a proxy with the
       "command": "npx",
       "args": [
         "mcp-remote",
-        "http://{{your-server-ip}}:8080/sse"
+        "http://{{your-server-ip}}:8080/{ProjectUrlAlias}/sse" // Replace {ProjectUrlAlias}
       ]
     }
+    // Add entries for each ProjectUrlAlias, potentially using different keys like "polarion-starlight"
   }
 }
 ```
