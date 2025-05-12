@@ -1,7 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
+using System.Text.Json; // For JsonSerializerOptions
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
+using System.Collections.Generic; // Added for List<>
 // using Microsoft.Extensions.Hosting; // Not directly used for WebApplication
 // using Microsoft.Extensions.Logging; // No longer directly used here, Serilog handles it
 using Polarion;
@@ -33,40 +34,53 @@ public class Program
             // Create the DI container
             //
             var builder = WebApplication.CreateBuilder(args);
-
-            // Get Polarion configuration from appsettings.json
+            
+            // Add to support the polarion client factory access to the route data
             //
-            var polarionConfigSection = builder.Configuration.GetSection("PolarionClientConfiguration");
-            
-            // Parse timeout value or use default
-            int timeoutSeconds = 60; // Default value
-            if (polarionConfigSection["TimeoutSeconds"] != null)
-            {
-                int.TryParse(polarionConfigSection["TimeoutSeconds"], out timeoutSeconds);
-            }
-            
-            // Manually create the configuration object with required properties
-            var polarionConfig = new PolarionClientConfiguration
-            {
-                ServerUrl = polarionConfigSection["ServerUrl"] ?? throw new InvalidOperationException("ServerUrl is required in configuration"),
-                Username = polarionConfigSection["Username"] ?? throw new InvalidOperationException("Username is required in configuration"),
-                Password = polarionConfigSection["Password"] ?? throw new InvalidOperationException("Password is required in configuration"),
-                ProjectId = polarionConfigSection["ProjectId"] ?? throw new InvalidOperationException("ProjectId is required in configuration"),
-                TimeoutSeconds = timeoutSeconds
-            };
+            builder.Services.AddHttpContextAccessor();
 
-            Log.Information($"Establishing Connection to Polarion server {polarionConfig.ServerUrl}, " +
-                            $"Logging in as {polarionConfig.Username}, " +
-                            $"Project Id: {polarionConfig.ProjectId}, " +
-                            $"Timeout: {polarionConfig.TimeoutSeconds} seconds");
+            // Configure JsonSerializerOptions to use the source generator context
+            //
+            builder.Services.Configure<JsonSerializerOptions>(options =>
+            {
+                // Ensure our source generator context is prioritized for JSON operations
+                options.TypeInfoResolverChain.Insert(0, PolarionConfigJsonContext.Default);
+            });
+
+
+            // Get Polarion project configurations from appsettings.json using source generation context
+            //
+            var polarionProjects = builder.Configuration.GetSection("PolarionProjects")
+                                            .Get<List<PolarionProjectConfig>>() ?? // Should use the configured source generator context
+                                            throw new InvalidOperationException("PolarionProjects configuration section is missing or invalid.");
+
+            // Validate the loaded configurations
+            //
+            if (!polarionProjects.Any())
+            {
+                throw new InvalidOperationException("No Polarion projects configured in PolarionProjects section.");
+            }
+            if (polarionProjects.Count(p => p.Default) > 1)
+            {
+                throw new InvalidOperationException("Multiple Polarion projects are marked as Default. Only one can be default.");
+            }
+
+            // Log information about loaded projects
+            //
+            Log.Information("Loaded {Count} Polarion project configurations.", polarionProjects.Count);
+            foreach(var proj in polarionProjects)
+            {
+                Log.Information(" - Project Alias: {Alias}, Server: {Server}, Default: {IsDefault}", 
+                    proj.ProjectUrlAlias, proj.SessionConfig!.ServerUrl, proj.Default);
+            }
 
             // Add Serilog
             //
             builder.Services.AddSerilog();
 
-            // Add the PolarionClientConfiguration and IPolarionClientFactory to the DI container
+            // Add the list of configurations and the factory to the DI container
             //
-            builder.Services.AddSingleton(polarionConfig); // Register the configuration instance
+            builder.Services.AddSingleton(polarionProjects); // Register the list of configurations
             builder.Services.AddScoped<IPolarionClientFactory, PolarionClientFactory>();
 
             // Add the McpServer to the DI container
@@ -83,7 +97,7 @@ public class Program
 
             // Map MCP endpoints
             //
-            app.MapMcp();
+            app.MapMcp("{projectId}");
 
             app.Run();
             return 0;
