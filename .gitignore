@@ -485,3 +485,4 @@ $RECYCLE.BIN/
 
 # Project specific
 dist/
+tmp/
