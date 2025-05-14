@@ -14,7 +14,7 @@ public sealed partial class McpTools
 {
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
     [McpServerTool
-            (Name = "get-text-for-workitems"),
+            (Name = "get_text_for_workitems"),
             Description(
                  "Gets the latest text for Requirements, Test Cases, and Test Procedures by WorkItem Id (e.g., MD-12345) from" +
                  "within the Polarion Application Lifecycle Management (ALM) system. " +
