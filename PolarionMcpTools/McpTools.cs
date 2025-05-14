@@ -29,7 +29,7 @@ public sealed class McpTools
                  "If the WorkItem is not found or encounters errors obtaining the WorkItem it will return a descriptive error message."
      )]
     public async Task<string> ReadWorkItems(
-        [Description("A comma-seperated list of WorkItem Ids")] string workItemIds)
+        [Description("A comma-separated list of WorkItem Ids")] string workItemIds)
     {
         string? returnMsg;
         
