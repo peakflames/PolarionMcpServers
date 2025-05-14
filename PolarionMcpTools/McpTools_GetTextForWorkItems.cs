@@ -14,14 +14,14 @@ public sealed partial class McpTools
 {
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
     [McpServerTool
-            (Name = "get_text_for_workitems"),
+            (Name = "get_text_for_workitems_by_id"),
             Description(
                  "Gets the latest text for Requirements, Test Cases, and Test Procedures by WorkItem Id (e.g., MD-12345) from" +
                  "within the Polarion Application Lifecycle Management (ALM) system. " +
                  "The tool automatically extracts the raw text and returns the raw content as a string.  " +
                  "If the WorkItem is not found or encounters errors obtaining the WorkItem it will return a descriptive error message."
      )]
-    public async Task<string> GetTextForWorkItems(
+    public async Task<string> GetTextForWorkItemsById(
         [Description("A comma-separated list of WorkItem Ids")] string workItemIds)
     {
         string? returnMsg;
