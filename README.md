@@ -4,7 +4,10 @@ This repository contains Model Context Protocol (MCP) server implementations for
 
 MCP Tools are available for Polarion work items, including:
 
-- Reading Polarion work items
+- get_text_for_workitems_by_id
+- get_documents
+- get_documents_by_space_names
+- get_space_names
 
 ## Projects
 
