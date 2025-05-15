@@ -11,7 +11,7 @@ namespace PolarionRemoteMcpServer
     /// </summary>
     [JsonSerializable(typeof(List<PolarionProjectConfig>))]
     [JsonSerializable(typeof(PolarionProjectConfig))] 
-    [JsonSerializable(typeof(PolarionClientConfiguration))] 
+    [JsonSerializable(typeof(PolarionClientConfiguration))]
     internal partial class PolarionConfigJsonContext : JsonSerializerContext
     {
     }

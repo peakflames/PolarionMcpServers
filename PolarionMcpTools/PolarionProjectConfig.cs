@@ -26,6 +26,12 @@ namespace PolarionMcpTools
         /// for this Polarion instance. This property name must match the JSON key ("SessionConfig").
         /// This property is required and expected to be populated by the configuration binder.
         /// </summary>
-        public PolarionClientConfiguration? SessionConfig { get; set; } 
+        public PolarionClientConfiguration? SessionConfig { get; set; }
+
+        /// <summary>
+        /// A string pattern used to filter out spaces that contain this string.
+        /// If null or empty, no filtering is applied.
+        /// </summary>
+        public string? BlacklistSpaceContainingMatch { get; set; }
     }
 }
