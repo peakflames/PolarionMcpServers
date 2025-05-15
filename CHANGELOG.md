@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0
+
+- Add the following tools:
+  - GetDocuments
+  - GetDocumentInSpaceNames
+  - GetSpaceNames
+
+- Add the following configuration options:
+  - BlacklistSpaceContainingMatch
+
 ## 0.2.0
 
 - Update to support multiple projects in the same server
