@@ -8,6 +8,7 @@ MCP Tools are available for Polarion work items, including:
 - get_documents
 - get_documents_by_space_names
 - get_space_names
+- search_workitems_in_document
 
 ## Projects
 
