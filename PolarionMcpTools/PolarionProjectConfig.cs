@@ -1,4 +1,4 @@
-using Polarion; // Assuming PolarionClientConfiguration is in this namespace
+
 
 namespace PolarionMcpTools
 {
