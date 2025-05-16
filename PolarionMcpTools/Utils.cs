@@ -15,8 +15,21 @@ namespace PolarionMcpTools;
 public sealed class Utils
 {
     [RequiresUnreferencedCode("Uses ReverseMarkdown API which requires reflection")]
-    public static string ConvertWorkItemToMarkdown(WorkItem workItem)
+    public static string ConvertWorkItemToMarkdown(string workItemId, WorkItem? workItem, string? errorMsg = null, bool includeMetadata = false)
     {
+        var sb = new StringBuilder();
+
+        if (!includeMetadata)
+        {
+            sb.AppendLine($"## WorkItem (ID='{workItemId}')");
+        }
+
+        if (workItem is null)
+            {
+                sb.AppendLine(errorMsg ?? $"ERROR: WorkItem with ID '{workItemId}' does not exist.");
+                return sb.ToString(); ;
+            }
+
         string description = workItem.description?.content?.ToString() ?? "Work Item description was null. Likely does not exist";
     
         try
@@ -34,8 +47,11 @@ public sealed class Utils
             return $"Error extracting data from WorkItem: {ex.Message}";
         }
 
-        var sb = new StringBuilder();
-        sb.AppendLine($"## WorkItem (ID={workItem.id})");
+        if (includeMetadata)
+        {
+            sb.AppendLine($"## WorkItem (ID='{workItemId}', type='{workItem.type.id}', status='{workItem.status.id}')");
+        }
+        sb.AppendLine("");
         sb.AppendLine(description);
         return sb.ToString();
     }
