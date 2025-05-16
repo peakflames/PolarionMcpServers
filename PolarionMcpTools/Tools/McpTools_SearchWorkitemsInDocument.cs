@@ -15,7 +15,10 @@ public sealed partial class McpTools
             string documentName,
 
             [Description("Quoted Keyphrases using Lucene boolean syntax to search. e.g. (\"proximity\" OR \"Protective Earth\") AND \"Charge\")")]
-            string textSearchTerms
+            string textSearchTerms,
+
+            [Description("Search only on the specified document revision. To use latest, set to -1")]
+            string documentRevision
         )
     {
         string? returnMsg;
@@ -58,7 +61,13 @@ public sealed partial class McpTools
             };
 
             var query = $"{moduleFilter}";
-            var workItemResult = await polarionClient.SearchWorkitemAsync(query, "outlineNumber", workItemFields);
+
+            // if documentRevision is -1, call SearchWorkitem otherwise SearchWorkitemInBaseline
+            //
+            var workItemResult = documentRevision == "-1" || string.IsNullOrEmpty(documentRevision)
+                                    ? await polarionClient.SearchWorkitemAsync(query, "outlineNumber", workItemFields)
+                                    : await polarionClient.SearchWorkitemInBaselineAsync(documentRevision, query, "outlineNumber", workItemFields);
+
 
             if (workItemResult.IsFailed)
             {
@@ -73,7 +82,9 @@ public sealed partial class McpTools
 
 
             var combinedWorkItems = new StringBuilder();
-            combinedWorkItems.AppendLine($"# Search Results for Polarion Work Items (Document=\"{documentName}\", searchTerms=\"{textSearchTerms}\")");
+
+            var documentRevisionNumber = documentRevision == "-1" ? "Latest" : documentRevision;
+            combinedWorkItems.AppendLine($"# Search Results for Polarion Work Items (Document=\"{documentName}\", searchTerms=\"{textSearchTerms}\", documentRevision=\"{documentRevisionNumber}\")");
             combinedWorkItems.AppendLine("");
             combinedWorkItems.AppendLine($"Found {workItems.Length} Work Items.");
             combinedWorkItems.AppendLine("");
