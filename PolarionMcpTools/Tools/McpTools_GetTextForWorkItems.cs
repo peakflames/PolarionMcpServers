@@ -1,14 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection; // Added for IServiceProvider and CreateAsyncScope
-using ModelContextProtocol.Server;
-using Polarion;
-using Polarion.Generated.Tracker;
-using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
-using System.Text;
-using System; // Added for IServiceProvider
-
-namespace PolarionMcpTools;
+﻿namespace PolarionMcpTools;
 
 public sealed partial class McpTools
 {
@@ -43,13 +33,14 @@ public sealed partial class McpTools
                 returnMsg = $"ERROR: (100) No woritems were provided.";
                 return returnMsg;
             }
+            
 
             try
             {
                 var combinedWorkItems = new StringBuilder();
                 combinedWorkItems.AppendLine("# Polarion Work Items");
                 combinedWorkItems.AppendLine("");
-                
+
                 foreach (var workItemId in workItemIdList)
                 {
                     var targetWorkItemId = workItemId.Trim();
@@ -59,18 +50,33 @@ public sealed partial class McpTools
                     }
 
                     var workItemResult = await polarionClient.GetWorkItemByIdAsync(targetWorkItemId);
+                    var workItemMarkdownString = "";
                     if (workItemResult.IsFailed)
                     {
-                        return $"ERROR: (101) Failed to fetch Polarion work item '{targetWorkItemId}'. Error: {workItemResult.Errors.First()}";
+                        workItemMarkdownString = Utils.ConvertWorkItemToMarkdown(
+                            workItemId,
+                            null,
+                            $"ERROR: (101) Failed to fetch Polarion work item '{targetWorkItemId}'. Error: {workItemResult.Errors.First()}");
+
+                        combinedWorkItems.Append(workItemMarkdownString);
+                        combinedWorkItems.AppendLine("");
+                        continue;
                     }
 
                     var workItem = workItemResult.Value;
                     if (workItem is null || workItem.id is null)
                     {
-                        return $"ERROR: (102) Failed to fetch Polarion work item '{targetWorkItemId}'. It does not exist.";
+                        workItemMarkdownString = Utils.ConvertWorkItemToMarkdown(
+                            workItemId,
+                            null,
+                            $"ERROR: (102) Failed to fetch Polarion work item '{targetWorkItemId}'. It does not exist.");
+                        
+                        combinedWorkItems.Append(workItemMarkdownString);
+                        combinedWorkItems.AppendLine("");
+                        continue;
                     }
 
-                    var workItemMarkdownString = Utils.ConvertWorkItemToMarkdown(workItem);
+                    workItemMarkdownString = Utils.ConvertWorkItemToMarkdown(workItemId, workItem, null);
                     combinedWorkItems.Append(workItemMarkdownString);
                     combinedWorkItems.AppendLine("");
                 }
