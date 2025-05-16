@@ -1,13 +1,3 @@
-using Microsoft.Extensions.Logging; // Added for ILogger
-using Polarion;
-using System.Diagnostics.CodeAnalysis;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http; // Added for IHttpContextAccessor
-using Microsoft.AspNetCore.Routing; // Added for GetRouteValue
-using System.Collections.Generic; // Added for List<>
-using System; // Added for StringComparison, Exception
-using System.Linq;
-using FluentResults; // Added for Linq methods like FirstOrDefault
 
 namespace PolarionMcpTools
 {
