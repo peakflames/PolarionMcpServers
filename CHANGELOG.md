@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2
+
+- Update parameter description for `GetDocuments` method
+
 ## 0.3.1
 
 - Add the following tools:
