@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.4
+
+- Add support for User arrays in Utils
+
 ## 0.3.3
 
 - Introduce `McpTools_GetDetailsForWorkItems`: A new tool to fetch comprehensive details for WorkItems, allowing users to specify fields or use a new default set.
