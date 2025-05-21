@@ -32,7 +32,7 @@
   
 
   <ItemGroup>
-    <PackageReference Include="Polarion" Version="0.0.8"/>
+    <PackageReference Include="Polarion" Version="0.0.9"/>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.3" />
     <PackageReference Include="ModelContextProtocol" Version="0.2.0-preview.1" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" Version="0.2.0-preview.1" />
