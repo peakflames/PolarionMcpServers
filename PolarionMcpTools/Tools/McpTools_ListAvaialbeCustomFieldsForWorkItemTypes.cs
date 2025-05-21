@@ -2,8 +2,8 @@ namespace PolarionMcpTools;
 
     public sealed partial class McpTools
     {
-        [McpServerTool(Name = "get_configured_custom_fields"), Description("Gets the configured list of custom fields for a specific WorkItem type ID from the current project's settings.")]
-        public Task<string> GetConfiguredCustomFields(
+        [McpServerTool(Name = "list_available_custom_fields_for_workitem_types"), Description("List the available custom fields for the specific WorkItem types. To obtain the list of WorkItem types, use the 'list_available_workitem_types' tool.")]
+        public Task<string> ListAvaialbeCustomFieldsForWorkItemTypes(
             [Description("The ID of the WorkItem type (e.g., 'requirement', 'failureCondition').")] string workItemTypeId)
         {
             var currentProjectConfig = GetCurrentProjectConfig();

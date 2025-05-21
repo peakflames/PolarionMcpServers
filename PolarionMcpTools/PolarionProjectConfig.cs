@@ -56,5 +56,11 @@ namespace PolarionMcpTools
         /// Each configuration defines custom fields to be retrieved for a specific WorkItem type.
         /// </summary>
         public List<ArtifactCustomFieldConfig>? PolarionWorkItemTypes { get; set; }
+
+        /// <summary>
+        /// Gets or sets the default list of WorkItem fields (standard and custom) to be retrieved
+        /// when no specific fields are requested by the user.
+        /// </summary>
+        public List<string>? PolarionWorkItemDefaultFields { get; set; }
     }
 }

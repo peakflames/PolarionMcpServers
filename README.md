@@ -241,3 +241,12 @@ dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj /t:Publish
 dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj /t:PublishContainer -r linux-x64 
 docker push peakflames/polarion-remote-mcp-server:{{VERSION}}
 ```
+
+## Debugging the SSE MCP Server
+
+1. Start the MCP Server project
+1. From a terminal, run `npx @modelcontextprotocol/inspector`
+1. From you browser, navigate to `http://localhost:{{PORT}}`
+1. Configure the inspector to connect to the server
+   i. TransportType: SSE
+   i. URL: http://{{your-server-ip}}:5090/{ProjectUrlAlias}/sse
