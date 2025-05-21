@@ -48,13 +48,15 @@ public class Program
             });
 
 
-            // Get Polarion project configurations from appsettings.json using source generation context
+            // Get the entire application configuration from appsettings.json using source generation context
             //
-            var polarionProjects = builder.Configuration.GetSection("PolarionProjects")
-                                            .Get<List<PolarionProjectConfig>>() ?? // Should use the configured source generator context
-                                            throw new InvalidOperationException("PolarionProjects configuration section is missing or invalid.");
+            var appConfig = builder.Configuration.Get<PolarionAppConfig>() ??
+                            throw new InvalidOperationException("Application configuration (PolarionAppConfig) is missing or invalid.");
 
-            // Validate the loaded configurations
+            var polarionProjects = appConfig.PolarionProjects ?? 
+                                   throw new InvalidOperationException("PolarionProjects configuration section is missing or invalid within PolarionAppConfig.");
+            
+            // Validate the loaded project configurations
             //
             if (!polarionProjects.Any())
             {
@@ -73,14 +75,15 @@ public class Program
                 Log.Information(" - Project Alias: {Alias}, Server: {Server}, Default: {IsDefault}", 
                     proj.ProjectUrlAlias, proj.SessionConfig!.ServerUrl, proj.Default);
             }
+            
 
             // Add Serilog
             //
             builder.Services.AddSerilog();
 
-            // Add the list of configurations and the factory to the DI container
+            // Add the configurations and the factory to the DI container
             //
-            builder.Services.AddSingleton(polarionProjects); // Register the list of configurations
+            builder.Services.AddSingleton(polarionProjects); // Register the list of project configurations
             builder.Services.AddScoped<IPolarionClientFactory, PolarionClientFactory>();
 
             // Add the McpServer to the DI container

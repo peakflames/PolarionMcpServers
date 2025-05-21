@@ -28,6 +28,8 @@ This document outlines the essential rules and conventions for the PolarionMcpSe
 1. **Create a new partial class file**:
    - Create a new file in `PolarionMcpTools/Tools/` named `McpTools_YourToolName.cs`
    - Follow the naming convention of existing tool files
+   - Follow namespace conventions of existing tool files
+   - Place using statements in GlobalUsing.cs file of the project
 
 2. **Implement the tool method**:
    ```csharp
@@ -95,7 +97,7 @@ This document outlines the essential rules and conventions for the PolarionMcpSe
 
 - Return results in markdown format
 - For lists, use bullet points with `- item` syntax
-- For work items, include headers with `## WorkItem (ID=XXX)` format
+- For work items, include headers with `## WorkItem (id=XXX, type=XXX, lastUpdated=XXX)` format
 
 ## Input Validation
 

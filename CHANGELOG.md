@@ -3,6 +3,10 @@
 ## 0.3.2
 
 - Update parameter description for `GetDocuments` method
+- Added per-project configuration (`PolarionWorkItemTypes` in `appsettings.json` under each project) to define specific custom fields to retrieve for different WorkItem types.
+- Added MCP Tool: `get_configured_custom_fields` - Retrieves the list of custom fields configured for a specific WorkItem type ID, based on the current project's settings.
+- Added MCP Tool: `list_configured_workitem_types` - Lists all WorkItem type IDs that have custom field configurations defined in the current project's settings.
+- Added MCP Tool: `get_custom_fields_for_workitems` - Retrieves specified custom field values for a given list of WorkItem IDs.
 
 ## 0.3.1
 

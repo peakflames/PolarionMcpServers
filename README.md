@@ -4,11 +4,14 @@ This repository contains Model Context Protocol (MCP) server implementations for
 
 MCP Tools are available for Polarion work items, including:
 
-- get_text_for_workitems_by_id
-- get_documents
-- get_documents_by_space_names
-- get_space_names
-- search_workitems_in_document
+- `get_text_for_workitems_by_id`: Gets the main text content for specified WorkItem IDs.
+- `get_documents`: Lists documents in the project, optionally filtered by title.
+- `get_documents_by_space_names`: Lists documents within specified space names.
+- `get_space_names`: Lists all available space names in the project.
+- `search_workitems_in_document`: Searches for WorkItems within a document based on text criteria.
+- `get_configured_custom_fields`: Retrieves the list of custom fields configured for a specific WorkItem type ID, based on the current project's settings.
+- `list_configured_workitem_types`: Lists all WorkItem type IDs that have custom field configurations defined in the current project's settings.
+- `get_custom_fields_for_workitems`: Retrieves specified custom field values for a given list of WorkItem IDs.
 
 ## Projects
 
@@ -51,7 +54,17 @@ MCP Tools are available for Polarion work items, including:
                   "Password": "linear-Vietnam-FLIP-212824", 
                   "ProjectId": "Starlight_Main", 
                   "TimeoutSeconds": 60
-              }
+              },
+              "PolarionWorkItemTypes": [
+                {
+                  "id": "requirement",
+                  "fields": ["custom_field_1", "priority", "severity"]
+                },
+                {
+                  "id": "defect",
+                  "fields": ["defect_type", "found_in_build"]
+                }
+              ]
           },
           {
               "ProjectUrlAlias": "octopus", 
@@ -102,11 +115,12 @@ The server uses a `PolarionProjects` array in `appsettings.json` to define one o
 
 **Each Project Configuration Object:**
 
-| Setting           | Description                                                                                                | Required | Default |
-| ----------------- | ---------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| `ProjectUrlAlias` | A unique string used in the connection URL (`/{ProjectUrlAlias}/sse`) to identify this configuration.        | Yes      | N/A     |
-| `Default`         | (boolean) If `true`, this configuration is used if the client connects without specifying a `ProjectUrlAlias`. Only one entry can be `true`. | No       | `false` |
-| `SessionConfig`   | (Object) Contains the specific connection details for this Polarion instance.                              | Yes      | N/A     |
+| Setting                   | Description                                                                                                | Required | Default         |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------- | -------- | --------------- |
+| `ProjectUrlAlias`         | A unique string used in the connection URL (`/{ProjectUrlAlias}/sse`) to identify this configuration.        | Yes      | N/A             |
+| `Default`                 | (boolean) If `true`, this configuration is used if the client connects without specifying a `ProjectUrlAlias`. Only one entry can be `true`. | No       | `false`         |
+| `SessionConfig`           | (Object) Contains the specific connection details for this Polarion instance.                              | Yes      | N/A             |
+| `PolarionWorkItemTypes`   | (Array, Optional) Defines custom fields to retrieve for specific WorkItem types within this project. Each object in the array should have an `id` (string, WorkItem type ID) and `fields` (array of strings, custom field names). | No       | Empty List      |
 
 **`SessionConfig` Object Details:**
 
