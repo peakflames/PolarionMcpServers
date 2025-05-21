@@ -2,7 +2,7 @@ namespace PolarionMcpTools;
 
     public sealed partial class McpTools
     {
-        [McpServerTool(Name = "list_configured_workitem_types"), Description("Lists all WorkItem type IDs that have configurations in the current project's PolarionWorkItemTypes settings.")]
+        [McpServerTool(Name = "list_available_workitem_types"), Description("Lists all WorkItem types")]
         public Task<string> ListConfiguredWorkItemTypes()
         {
             var currentProjectConfig = GetCurrentProjectConfig();

@@ -51,6 +51,9 @@ This document outlines the essential rules and conventions for the PolarionMcpSe
 
                var polarionClient = clientResult.Value;
 
+               // Get the current project configuration
+               var projectConfig = GetCurrentProjectConfig();
+
                try
                {
                    // Implement your tool logic here
@@ -115,3 +118,8 @@ This document outlines the essential rules and conventions for the PolarionMcpSe
     <EnableSdkContainerSupport>true</EnableSdkContainerSupport>
     <ContainerRepository>peakflames/polarion-remote-mcp-server</ContainerRepository>
     ```
+
+## C# Coding Conventions
+
+- Use `var` for all variables
+- Use curly braces for all blocks

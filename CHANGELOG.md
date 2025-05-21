@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.3
+
+- Introduce `McpTools_GetDetailsForWorkItems`: A new tool to fetch comprehensive details for WorkItems, allowing users to specify fields or use a new default set.
+- Add `PolarionWorkItemDefaultFields` to `PolarionProjectConfig`: Enables defining a default list of fields to retrieve for WorkItems when no specific fields are requested.
+- Add `McpTools_ListAvaialbeCustomFieldsForWorkItemTypes`: A new tool to list all available custom fields for different WorkItem types.
+- Remove deprecated tools: `McpTools_GetConfiguredCustomFields` and `McpTools_GetCustomFieldsForWorkItems`.
+- Update `McpTools_ListConfiguredWorkItemTypes`, `Utils.cs`, `appsettings.json`, and `README.md` to support these enhancements and document the new functionality.
+
 ## 0.3.2
 
 - Update parameter description for `GetDocuments` method
