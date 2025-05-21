@@ -104,6 +104,24 @@ public sealed class Utils
             var userId = userValue.uri.Split("${User}")[1];
             return userId;
         }
+        else if (value is User[] userValueArray)
+        {
+            // For arrays, return a comma-separated list of enum IDs. Be sure to remove the last comma.
+            var sb = new StringBuilder();
+            foreach (var entry in userValueArray)
+            {
+                // extract the useer id from the `uri` property which return a string in the format of: "subterra:data-service:objects:/default/${User}ybureau"
+                var userId = entry.uri.Split("${User}")[1];
+                sb.Append($"{userId}, ");
+            }
+
+            if (sb.Length > 0)
+            {
+                sb.Remove(sb.Length - 2, 2);
+            }
+
+            return sb.ToString();
+        }
         else if (value is Project projectValue)
         {
             return projectValue.id;
