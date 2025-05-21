@@ -76,7 +76,7 @@ public sealed partial class McpTools
                         continue;
                     }
 
-                    workItemMarkdownString = Utils.ConvertWorkItemToMarkdown(workItemId, workItem, null);
+                    workItemMarkdownString = Utils.ConvertWorkItemToMarkdown(workItemId, workItem, null, true);
                     combinedWorkItems.Append(workItemMarkdownString);
                     combinedWorkItems.AppendLine("");
                 }

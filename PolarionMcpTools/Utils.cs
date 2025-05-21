@@ -13,17 +13,17 @@ public sealed class Utils
 
         if (!includeMetadata)
         {
-            sb.AppendLine($"## WorkItem (ID='{workItemId}')");
+            sb.AppendLine($"## WorkItem (id='{workItemId}')");
         }
 
         if (workItem is null)
-            {
-                sb.AppendLine(errorMsg ?? $"ERROR: WorkItem with ID '{workItemId}' does not exist.");
-                return sb.ToString(); ;
-            }
+        {
+            sb.AppendLine(errorMsg ?? $"ERROR: WorkItem with ID '{workItemId}' does not exist.");
+            return sb.ToString(); ;
+        }
 
         string description = workItem.description?.content?.ToString() ?? "Work Item description was null. Likely does not exist";
-    
+
         try
         {
             if (workItem.description?.type == "text/html")
@@ -41,10 +41,11 @@ public sealed class Utils
 
         if (includeMetadata)
         {
-            sb.AppendLine($"## WorkItem (ID='{workItemId}', type='{workItem.type.id}', status='{workItem.status.id}')");
+            sb.AppendLine($"## WorkItem (id='{workItemId}', type='{workItem.type.id}', lastUpdated='{workItem.updated}')");
         }
         sb.AppendLine("");
         sb.AppendLine(description);
         return sb.ToString();
     }
+    
 }

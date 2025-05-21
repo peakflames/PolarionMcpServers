@@ -10,8 +10,8 @@ public sealed partial class McpTools
          )]
     public async Task<string> GetDocuments(
         
-        [Description("Optional filter by title")]
-        string? titleContains = null
+        [Description("Optional filter by title. If set to empty string, all documents are returned.")]
+        string titleContains
         )
     {
         string? returnMsg;
