@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+
+- Add WorkItemPrefix property and update space names description
+- Add new tool `get_sections_in_document`
+- Add new tool `get_section_content_for_document`
+- Upgrade `Polarion` to 0.1.0
+
 ## 0.3.4
 
 - Add support for User arrays in Utils
