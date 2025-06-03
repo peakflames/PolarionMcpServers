@@ -3,8 +3,8 @@
 public sealed partial class McpTools
 {
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
-    [McpServerTool(Name = "get_headings_for_document"), Description("Get all headings within a Polarion Document. Results in a Markdwon document of only headings.")]
-    public async Task<string> GetHeadingsForDocument(
+    [McpServerTool(Name = "get_sections_in_document"), Description("Get all section headings within a Polarion Document. Results in a Markdwon document of only headings.")]
+    public async Task<string> GetSectionsInDocument(
         [Description("Name of Polarion document")]
         string documentName,
 
@@ -37,7 +37,7 @@ public sealed partial class McpTools
                     return returnMsg;
                 }
 
-                var polarionFilter = PolarionFilter.Create("type:heading", true, false, [], false);
+                var polarionFilter = PolarionFilter.Create(null, true, false, [], false);
                 var targetDocumentRevision = documentRevision == "-1" ? null : documentRevision;
 
                 var results = await polarionClient.ExportModuleToMarkdownAsync(
