@@ -62,5 +62,10 @@ namespace PolarionMcpTools
         /// when no specific fields are requested by the user.
         /// </summary>
         public List<string>? PolarionWorkItemDefaultFields { get; set; }
+
+        /// <summary>
+        /// Gets or sets the prefix to be used when creating a Polarion WorkItem.
+        /// If null or empty, no prefix will be used.
+        public string? WorkItemPrefix { get; set; }
     }
 }
