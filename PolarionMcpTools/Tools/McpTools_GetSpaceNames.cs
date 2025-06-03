@@ -3,7 +3,7 @@
 public sealed partial class McpTools
 {
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
-    [McpServerTool(Name = "get_space_names"), Description("Gets the names of all Space in the Polarion Application Lifecycle Management (ALM) Project. Results are filtered by the BlacklistSpaceContainingMatch configuration if present.")]
+    [McpServerTool(Name = "get_space_names"), Description("Gets the names of all Space in the Polarion Application Lifecycle Management (ALM) Project. Space names are filtered by an internal blacklist.")]
     public async Task<string> GetSpaceNames()
     {
         string? returnMsg;
