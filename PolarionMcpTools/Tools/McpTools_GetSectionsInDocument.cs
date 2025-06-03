@@ -37,7 +37,7 @@ public sealed partial class McpTools
                     return returnMsg;
                 }
 
-                var polarionFilter = PolarionFilter.Create(null, true, false, [], false);
+                var polarionFilter = PolarionFilter.Create("type:heading", true, false, [], false);
                 var targetDocumentRevision = documentRevision == "-1" ? null : documentRevision;
 
                 var results = await polarionClient.ExportModuleToMarkdownAsync(
