@@ -103,7 +103,7 @@ public sealed partial class McpTools
 
                 var workItemMarkdownString = "";
 
-                workItemMarkdownString = Utils.ConvertWorkItemToMarkdown(workItem.id, workItem, null, true);
+                workItemMarkdownString = polarionClient.ConvertWorkItemToMarkdown(workItem.id, workItem, null, true);
                 combinedWorkItems.Append(workItemMarkdownString);
                 combinedWorkItems.AppendLine("");
             }

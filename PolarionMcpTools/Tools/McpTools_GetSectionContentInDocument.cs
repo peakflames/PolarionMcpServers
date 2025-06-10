@@ -46,7 +46,7 @@ public sealed partial class McpTools
                 var headinglevel = documentNumber.Split('.').Length;
 
                 var results = await polarionClient.ExportModuleToMarkdownGroupedByHeadingAsync(
-                    headinglevel, workItemPrefix, documentName, polarionFilter, [], targetDocumentRevision);
+                    headinglevel, workItemPrefix, documentName, polarionFilter, [], true, targetDocumentRevision);
                 if (results.IsFailed)
                 {
                     return $"ERROR: (98651) Failed to section content for document. Error: {results.Errors.First()}";
