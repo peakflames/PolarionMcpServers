@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2
+
+- Update Polarion package to version 0.2.0 and adapt API calls
+
 ## 0.4.1
 
 - Fix issue with `get_sections_in_document` tool

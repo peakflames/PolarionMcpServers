@@ -41,7 +41,7 @@ public sealed partial class McpTools
                 var targetDocumentRevision = documentRevision == "-1" ? null : documentRevision;
 
                 var results = await polarionClient.ExportModuleToMarkdownAsync(
-                    workItemPrefix, documentName, polarionFilter, [], targetDocumentRevision);
+                    workItemPrefix, documentName, polarionFilter, [], true, targetDocumentRevision);
                 if (results.IsFailed)
                 {
                     return $"ERROR: (3859) Failed to get headings for document. Error: {results.Errors.First()}";
