@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1
+
+- Fix issue with `get_sections_in_document` tool
+
 ## 0.4.0
 
 - Add WorkItemPrefix property and update space names description
