@@ -146,12 +146,12 @@ public sealed partial class McpTools
                     }
 
                     sb.AppendLine();
-                    sb.AppendLine($"### Outgoing Linked WorkItems");
+                    sb.AppendLine($"### Incoming Linked WorkItems");
                     sb.AppendLine();
 
                     if (workItem.linkedWorkItemsDerived is null || workItem.linkedWorkItemsDerived.Length == 0)
                     {
-                        sb.AppendLine($"- No outgoing linked WorkItems found.");
+                        sb.AppendLine($"- None.");
                     }
                     else
                     {
@@ -175,12 +175,12 @@ public sealed partial class McpTools
                     }
 
                     sb.AppendLine();
-                    sb.AppendLine($"### Incoming Linked WorkItems");
+                    sb.AppendLine($"### Outgoing Linked WorkItems");
                     sb.AppendLine();
 
                     if (workItem.linkedWorkItems is null || workItem.linkedWorkItems.Length == 0)
                     {
-                        sb.AppendLine($"- No linked WorkItems found.");
+                        sb.AppendLine($"- None.");
                     }
                     else
                     {

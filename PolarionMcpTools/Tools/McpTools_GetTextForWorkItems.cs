@@ -53,7 +53,7 @@ public sealed partial class McpTools
                     var workItemMarkdownString = "";
                     if (workItemResult.IsFailed)
                     {
-                        workItemMarkdownString = Utils.ConvertWorkItemToMarkdown(
+                        workItemMarkdownString = polarionClient.ConvertWorkItemToMarkdown(
                             workItemId,
                             null,
                             $"ERROR: (101) Failed to fetch Polarion work item '{targetWorkItemId}'. Error: {workItemResult.Errors.First()}");
@@ -66,7 +66,7 @@ public sealed partial class McpTools
                     var workItem = workItemResult.Value;
                     if (workItem is null || workItem.id is null)
                     {
-                        workItemMarkdownString = Utils.ConvertWorkItemToMarkdown(
+                        workItemMarkdownString = polarionClient.ConvertWorkItemToMarkdown(
                             workItemId,
                             null,
                             $"ERROR: (102) Failed to fetch Polarion work item '{targetWorkItemId}'. It does not exist.");
@@ -76,7 +76,7 @@ public sealed partial class McpTools
                         continue;
                     }
 
-                    workItemMarkdownString = Utils.ConvertWorkItemToMarkdown(workItemId, workItem, null, true);
+                    workItemMarkdownString = polarionClient.ConvertWorkItemToMarkdown(workItemId, workItem, null, true);
                     combinedWorkItems.Append(workItemMarkdownString);
                     combinedWorkItems.AppendLine("");
                 }
