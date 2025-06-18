@@ -3,6 +3,8 @@
 ## 0.4.2
 
 - Update Polarion package to version 0.2.0 and adapt API calls
+  - Better support for LateX and polarion-rte-link cross references in the Markdown outputs
+- In `get_details_for_workitems`, swap incoming/outgoing linked WorkItems sections
 
 ## 0.4.1
 
