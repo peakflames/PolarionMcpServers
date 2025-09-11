@@ -41,7 +41,7 @@
 
   <!-- copy the config file to the output directory -->
   <Target Name="CopyConfigFile" AfterTargets="Build">
-    <Copy SourceFiles="$(MSBuildThisFileDirectory)polarion-mcp.config.json" DestinationFolder="$(OutputPath)" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)appsettings.json" DestinationFolder="$(OutputPath)" />
   </Target>
 
   <ItemGroup>    

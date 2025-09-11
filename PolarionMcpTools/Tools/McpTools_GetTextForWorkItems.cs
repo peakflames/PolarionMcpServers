@@ -18,7 +18,22 @@ public sealed partial class McpTools
         
         await using (var scope = _serviceProvider.CreateAsyncScope())
         {
-            var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
+            IPolarionClientFactory? clientFactory;
+
+            try
+            {
+                clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
+            }
+            catch (Exception ex)
+            {
+                returnMsg = $"ERROR: Failed to get Polarion Client Factory due to exception '{ex.Message}'";
+                if (ex.InnerException != null)
+                {
+                    returnMsg += $"\nInner Exception: {ex.InnerException.Message}";
+                }
+                return returnMsg;
+            }
+
             var clientResult = await clientFactory.CreateClientAsync();
             if (clientResult.IsFailed)
             {
