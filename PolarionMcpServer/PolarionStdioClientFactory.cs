@@ -1,46 +1,50 @@
 
-namespace PolarionMcpTools
-{
-    public interface IPolarionClientFactory
-    {
-        [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
-        Task<Result<IPolarionClient>> CreateClientAsync();
-        string? ProjectId { get; }
-    }
+using System.Diagnostics.CodeAnalysis;
+using FluentResults;
+using Microsoft.Extensions.Logging;
+using Polarion;
+using PolarionMcpTools;
 
-    public class PolarionClientFactory : IPolarionClientFactory
+namespace PolarionMcpServer
+{
+    public class PolarionStdioClientFactory : IPolarionClientFactory
     {
         private readonly List<PolarionProjectConfig> _projectConfigs; // Changed from single configuration
-        private readonly ILogger<PolarionClientFactory> _logger;
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogger<PolarionStdioClientFactory> _logger;
+        private readonly string? _commandLineProjectAlias; // Project alias from command line arguments
 
-        // Constructor updated to inject the list of project configurations
-        public PolarionClientFactory(
+
+        // Constructor updated to inject the list of project configurations and optional command line project alias
+        public PolarionStdioClientFactory(
             List<PolarionProjectConfig> projectConfigs, // Changed parameter type
-            ILogger<PolarionClientFactory> logger,
-            IHttpContextAccessor httpContextAccessor)
+            ILogger<PolarionStdioClientFactory> logger,
+            string? commandLineProjectAlias = null)
         {
             _projectConfigs = projectConfigs; // Assign the injected list
             _logger = logger;
-            _httpContextAccessor = httpContextAccessor;
+            _commandLineProjectAlias = commandLineProjectAlias;
         }
 
         // Public property to get the projectId from route data
-        public string? ProjectId => _httpContextAccessor.HttpContext?.GetRouteValue("projectId")?.ToString();
+        public string? ProjectId => null;
 
         [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
         public async Task<Result<IPolarionClient>> CreateClientAsync()
         {
-            string? routeProjectId = ProjectId; // Get project ID alias from route
-            _logger.LogDebug("Attempting to create Polarion client for requested Project Alias: {RouteProjectId}", routeProjectId ?? "[Not Provided]");
+            // First priority: Command line project alias
+            string? effectiveProjectAlias = _commandLineProjectAlias;
+            string projectAliasSource = "command line";
+                        
+            _logger.LogDebug("Attempting to create Polarion client for requested Project Alias: {ProjectAlias} (from {Source})", 
+                effectiveProjectAlias ?? "[Not Provided]", projectAliasSource);
 
             PolarionProjectConfig? selectedConfig = null;
 
-            // Try to find a configuration matching the route alias (case-insensitive)
-            if (!string.IsNullOrEmpty(routeProjectId))
+            // Try to find a configuration matching the effective project alias (case-insensitive)
+            if (!string.IsNullOrEmpty(effectiveProjectAlias))
             {
                 selectedConfig = _projectConfigs.FirstOrDefault(p => 
-                    p.ProjectUrlAlias.Equals(routeProjectId, StringComparison.OrdinalIgnoreCase));
+                    p.ProjectUrlAlias.Equals(effectiveProjectAlias, StringComparison.OrdinalIgnoreCase));
                 
                 if (selectedConfig != null) 
                 {
@@ -59,7 +63,7 @@ namespace PolarionMcpTools
                 else
                 {
                     // If still no config (neither specific nor default), throw an error
-                    var errorMessage = $"Configuration error: No specific or default Polarion project configuration found for requested alias '{routeProjectId ?? "[Not Provided]"}'. Check appsettings.json.";
+                    var errorMessage = $"Configuration error: No specific or default Polarion project configuration found for requested alias '{effectiveProjectAlias ?? "[Not Provided]"}'. Check appsettings.json.";
                     _logger.LogError(errorMessage);
                     return Result.Fail(errorMessage);
                 }
