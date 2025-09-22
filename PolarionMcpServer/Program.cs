@@ -1,8 +1,10 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Polarion;
 using PolarionMcpTools;
 using Serilog;
@@ -18,6 +20,39 @@ public class Program
     {
         try
         {
+            // Parse command line arguments to get the project alias
+            string? projectAlias = null;
+            string? configPath = null;
+            
+            // Simple command line parsing for --project or -p argument
+            for (int i = 0; i < args.Length; i++)
+            {
+                if ((args[i] == "--project" || args[i] == "-p") && i + 1 < args.Length)
+                {
+                    projectAlias = args[i + 1];
+                }
+                else if (args[i].StartsWith("--project="))
+                {
+                    projectAlias = args[i].Substring("--project=".Length);
+                }
+                else if (args[i].StartsWith("-p="))
+                {
+                    projectAlias = args[i].Substring("-p=".Length);
+                }
+                else if ((args[i] == "--config" || args[i] == "-c") && i + 1 < args.Length)
+                {
+                    configPath = args[i + 1];
+                }
+                else if (args[i].StartsWith("--config="))
+                {
+                    configPath = args[i].Substring("--config=".Length);
+                }
+                else if (args[i].StartsWith("-c="))
+                {
+                    configPath = args[i].Substring("-c=".Length);
+                }
+            }
+
             Log.Logger = new LoggerConfiguration()
                             .MinimumLevel.Verbose() // Capture all log levels
                             .WriteTo.File(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "PolarionMcpServer_.log"),
@@ -27,52 +62,101 @@ public class Program
                             .WriteTo.Console(standardErrorFromLevel: Serilog.Events.LogEventLevel.Verbose)
                             .CreateLogger();
 
-
-            var filePath = Path.Combine(AppContext.BaseDirectory, "polarion-mcp.config.json");
-            Log.Information($"Loading configuration from {filePath}");
-            if (!File.Exists(filePath))
+            if (projectAlias != null)
             {
-                Log.Error($"Failed to find configuration file at {filePath}");
-                return 1;
+                Log.Information("Using project alias from command line: {ProjectAlias}", projectAlias);
             }
-
-            var json = File.ReadAllText(filePath);
-            var config = JsonSerializer.Deserialize(json, AppConfigJsonContext.Default.PolarionClientConfiguration);
-            if (config is null)
-            {
-                Log.Error("Failed to load configuration");
-                return 1;
-            }
-
-
-            // Establish connection to Polarion server
-            //
-            Log.Information($"Establishiing Connection to Polarion server {config.ServerUrl}, " +
-                            $"Logging in as {config.Username}, " +
-                            $"Project Id: {config.ProjectId}, " +
-                            $"Timeout: {config.TimeoutSeconds} seconds");
-
-            var polarionConfig = new PolarionClientConfiguration
-            (
-                serverUrl: config.ServerUrl,
-                username: config.Username,
-                password: config.Password,
-                projectId: config.ProjectId,
-                timeoutSeconds: config.TimeoutSeconds
-            );
 
             // Create the DI container
             //
             var builder = Host.CreateApplicationBuilder(args);
 
+            if (!string.IsNullOrEmpty(configPath))
+            {
+                builder.Configuration.AddJsonFile(configPath, optional: false, reloadOnChange: true);
+                Log.Information("Using configuration file from command line: {ConfigFilePath}", configPath);
+            }
+ 
+            // Configure JsonSerializerOptions to use the source generator context
+            //
+            builder.Services.Configure<JsonSerializerOptions>(options =>
+            {
+                // Ensure our source generator context is prioritized for JSON operations
+                options.TypeInfoResolverChain.Insert(0, PolarionConfigJsonContext.Default);
+            });
+
+
+            // print the entire file path to the app setting file that is being used by the builder.Configuration
+            var fileProvider = builder.Configuration.GetFileProvider();
+            if (fileProvider == null)
+            {
+                Log.Warning("Configuration file provider is null. Cannot determine configuration file path.");
+            }
+            else
+            {
+                var fileInfo = fileProvider.GetFileInfo("appsettings.json");
+                if (fileInfo == null || !fileInfo.Exists)
+                {
+                    var expectedPath = Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json");
+                    Log.Warning("Configuration file 'appsettings.json' not found. Expected at: {ExpectedPath}", expectedPath);
+                }
+                else
+                {
+                    Log.Information("Using configuration file: {ConfigFilePath}", fileInfo.PhysicalPath);
+                }
+            }
+ 
+            // Get the entire application configuration from appsettings.json using source generation context
+            //
+            var appConfig = builder.Configuration.Get<PolarionAppConfig>() ??
+                            throw new InvalidOperationException("Application configuration (PolarionAppConfig) is missing or invalid.");
+
+            if (appConfig.PolarionProjects is null)
+            {
+                // for debugging we need to read the entire config file as raw test and print it to the log
+                 Log.Information("PolarionAppConfig: {PolarionAppConfig}", JsonSerializer.Serialize(appConfig, PolarionConfigJsonContext.Default.PolarionAppConfig));
+            }
+
+            var polarionProjects = appConfig.PolarionProjects ?? 
+                                   throw new InvalidOperationException("PolarionProjects configuration section is missing or invalid within PolarionAppConfig.");
+            
+            // Validate the loaded project configurations
+            //
+            if (!polarionProjects.Any())
+            {
+                throw new InvalidOperationException("No Polarion projects configured in PolarionProjects section.");
+            }
+            if (polarionProjects.Count(p => p.Default) > 1)
+            {
+                throw new InvalidOperationException("Multiple Polarion projects are marked as Default. Only one can be default.");
+            }
+
+            // Log information about loaded projects
+            //
+            // Log.Information("Loaded {Count} Polarion project configurations.", polarionProjects.Count);
+            // foreach(var proj in polarionProjects)
+            // {
+            //     Log.Information(" - Project Alias: {Alias}, Server: {Server}, Default: {IsDefault}", 
+            //         proj.ProjectUrlAlias, proj.SessionConfig!.ServerUrl, proj.Default);
+            // }
+            
+
             // Add Serilog
             //
             builder.Services.AddSerilog();
 
-            // Add the PolarionClientConfiguration and IPolarionClientFactory to the DI container
+            // Add the configurations and the factory to the DI container
             //
-            builder.Services.AddSingleton(polarionConfig); // Register the configuration instance
-            builder.Services.AddScoped<IPolarionClientFactory, PolarionClientFactory>();
+            builder.Services.AddSingleton(polarionProjects); // Register the list of project configurations
+            
+            // Register the factory with the command line project alias
+            builder.Services.AddScoped<IPolarionClientFactory>(sp => 
+                new PolarionStdioClientFactory(
+                    polarionProjects,
+                    sp.GetRequiredService<ILogger<PolarionStdioClientFactory>>(),
+                    projectAlias
+                )
+            );
 
             // Add the McpServer to the DI container
             //
@@ -83,7 +167,7 @@ public class Program
 
             // Build and Run the McpServer
             //
-            Log.Information("Starting PolarionMcpServer...");
+            // Log.Information("Starting PolarionMcpServer...");
             builder.Build().Run();
             return 0;
         }
@@ -95,9 +179,4 @@ public class Program
             return 1;
         }
     }
-}
-
-[JsonSerializable(typeof(PolarionClientConfiguration))]
-public partial class AppConfigJsonContext : JsonSerializerContext
-{
 }

@@ -1,9 +1,11 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        {
+            "name": ".NET Core Attach",
+            "type": "coreclr",
+            "request": "attach"
+        },
         {
             "name": "C#: PolarionRemoteMcpServer Debug",
             "type": "dotnet",
@@ -11,15 +13,11 @@
             "projectPath": "${workspaceFolder}/PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj"
         },
         {
-            "name": "Debug PolarionMcpServer",
-            "type": "coreclr",
+            "name": "C#: PolarionMcpServer",
+            "type": "dotnet",
             "request": "launch",
-            "preLaunchTask": "build",
-            "program": "${workspaceFolder}/PolarionMcpServer/bin/Debug/net9.0/PolarionMcpServer.dll",
-            "args": [],
-            "cwd": "${workspaceFolder}/PolarionMcpServer",
-            "stopAtEntry": false,
-            "console": "internalConsole"
-        }        
+            "projectPath": "${workspaceFolder}\\PolarionMcpServer\\PolarionMcpServer.csproj",
+            "launchConfigurationId": "TargetFramework=;PolarionMcpServer"
+        }
     ]
 }

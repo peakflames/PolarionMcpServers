@@ -1,8 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json; // For JsonSerializerOptions
-using System.Text.Json.Serialization;
-using Microsoft.Extensions.DependencyInjection;
-using System.Collections.Generic; // Added for List<>
+
 // using Microsoft.Extensions.Hosting; // Not directly used for WebApplication
 // using Microsoft.Extensions.Logging; // No longer directly used here, Serilog handles it
 using Polarion;
@@ -84,7 +82,7 @@ public class Program
             // Add the configurations and the factory to the DI container
             //
             builder.Services.AddSingleton(polarionProjects); // Register the list of project configurations
-            builder.Services.AddScoped<IPolarionClientFactory, PolarionClientFactory>();
+            builder.Services.AddScoped<IPolarionClientFactory, PolarionRemoteClientFactory>();
 
             // Add the McpServer to the DI container
             //
