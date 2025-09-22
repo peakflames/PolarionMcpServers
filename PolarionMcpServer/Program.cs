@@ -55,7 +55,7 @@ public class Program
 
             Log.Logger = new LoggerConfiguration()
                             .MinimumLevel.Verbose() // Capture all log levels
-                            .WriteTo.File(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "PolarionMcpServer_.log"),
+                            .WriteTo.File(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "polarion_mcp_stdio_.log"),
                                 rollingInterval: RollingInterval.Day,
                                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
                             .WriteTo.Debug()
