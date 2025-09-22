@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.3
+
+Refactor MCP server architecture and consolidate configuration
+
+- Split PolarionClientFactory into stdio and remote implementations
+- Move shared components to PolarionMcpTools library
+- Replace polarion-mcp.config.json with appsettings.json
+- Add IPolarionClientFactory interface for dependency injection
+- Update VS Code launch configurations for new project structure
+- Consolidate project configurations and field mappings
+
 ## 0.4.2
 
 - Update Polarion package to version 0.2.0 and adapt API calls

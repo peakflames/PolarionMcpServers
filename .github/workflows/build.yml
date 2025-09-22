@@ -1,0 +1,189 @@
+name: Build and Release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      create_prerelease:
+        description: 'Create developmental release from develop branch'
+        required: true
+        default: false
+        type: boolean
+      prerelease_name:
+        description: 'Developmental release name (e.g., "Beta 1", "RC 2")'
+        required: false
+        type: string
+        default: 'Development Build'
+
+env:
+  PROJECT_PATH: PolarionMcpServer/PolarionMcpServer.csproj
+  PROJECT_NAME: polarion-mcp
+  DOTNET_VERSION: '9.0.x'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false  # Continue with other builds if one fails
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            extension: .exe
+          - os: ubuntu-latest
+            rid: linux-x64
+            extension: ''
+          - os: macos-latest
+            rid: osx-x64
+            extension: ''
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for proper versioning
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Set version from tag
+      if: startsWith(github.ref, 'refs/tags/')
+      shell: bash
+      run: |
+        TAG=${GITHUB_REF#refs/tags/v}
+        echo "VERSION=$TAG" >> $GITHUB_ENV
+        # Update version in project file if needed
+        dotnet tool install -g dotnet-property
+        dotnet property ${{ env.PROJECT_PATH }} Version:"$TAG"
+
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.PROJECT_PATH }}
+
+    - name: Build
+      run: dotnet publish ${{ env.PROJECT_PATH }} -c Release -r ${{ matrix.rid }} -o ./publish/${{ matrix.rid }}
+
+    # - name: Test
+    #   run: dotnet test ${{ env.PROJECT_PATH }} --no-restore --verbosity normal
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.PROJECT_NAME }}-${{ matrix.rid }}
+        path: ./publish/${{ matrix.rid }}/${{ env.PROJECT_NAME }}${{ matrix.extension }}
+        if-no-files-found: error
+
+  create-release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Set version from tag
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+
+      - name: Rename executables for release
+        run: |
+          mkdir -p release-assets
+          cp "${{ env.PROJECT_NAME }}-win-x64/${{ env.PROJECT_NAME }}.exe" "release-assets/${{ env.PROJECT_NAME }}-win-x64.exe"
+          cp "${{ env.PROJECT_NAME }}-linux-x64/${{ env.PROJECT_NAME }}" "release-assets/${{ env.PROJECT_NAME }}-linux-x64"
+          cp "${{ env.PROJECT_NAME }}-osx-x64/${{ env.PROJECT_NAME }}" "release-assets/${{ env.PROJECT_NAME }}-osx-x64"
+          chmod +x "release-assets/${{ env.PROJECT_NAME }}-linux-x64" "release-assets/${{ env.PROJECT_NAME }}-osx-x64"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release v${{ env.VERSION }}
+          draft: false
+          prerelease: ${{ contains(github.ref, '-alpha') || contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
+          files: |
+            release-assets/${{ env.PROJECT_NAME }}-win-x64.exe
+            release-assets/${{ env.PROJECT_NAME }}-linux-x64
+            release-assets/${{ env.PROJECT_NAME }}-osx-x64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+  create-develop-prerelease:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.create_prerelease == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.ref || github.ref }}
+      
+      - name: Debug workflow information
+        run: |
+          echo "GitHub Ref: ${{ github.ref }}"
+          echo "Event Name: ${{ github.event_name }}"
+          echo "Create Pre-release Input: ${{ github.event.inputs.create_prerelease }}"
+          echo "Pre-release Name Input: ${{ github.event.inputs.prerelease_name }}"
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+      
+      - name: Get current date
+        id: date
+        run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+      
+      - name: Get short SHA
+        id: sha
+        run: echo "SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      
+      - name: Extract version from project file
+        id: project_version
+        run: |
+          if [ -f "${{ env.PROJECT_PATH }}" ]; then
+            VERSION=$(grep -o '<Version>[^<]*</Version>' ${{ env.PROJECT_PATH }} | sed 's/<Version>\(.*\)<\/Version>/\1/')
+            if [ -z "$VERSION" ]; then
+              VERSION="1.0.0"
+              echo "Could not extract version from project file, using default: $VERSION"
+            fi
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+            echo "Extracted version: $VERSION"
+          else
+            echo "Project file not found: ${{ env.PROJECT_PATH }}"
+            echo "VERSION=1.0.0" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Set develop version
+        run: |
+          echo "DEV_VERSION=${{ steps.project_version.outputs.VERSION }}-dev.${{ steps.date.outputs.DATE }}.${{ steps.sha.outputs.SHA }}" >> $GITHUB_ENV
+          echo "Using develop version: ${{ steps.project_version.outputs.VERSION }}-dev.${{ steps.date.outputs.DATE }}.${{ steps.sha.outputs.SHA }}"
+      
+      - name: Rename executables for pre-release
+        run: |
+          mkdir -p release-assets
+          cp "${{ env.PROJECT_NAME }}-win-x64/${{ env.PROJECT_NAME }}.exe" "release-assets/${{ env.PROJECT_NAME }}-win-x64.exe"
+          cp "${{ env.PROJECT_NAME }}-linux-x64/${{ env.PROJECT_NAME }}" "release-assets/${{ env.PROJECT_NAME }}-linux-x64"
+          cp "${{ env.PROJECT_NAME }}-osx-x64/${{ env.PROJECT_NAME }}" "release-assets/${{ env.PROJECT_NAME }}-osx-x64"
+          chmod +x "release-assets/${{ env.PROJECT_NAME }}-linux-x64" "release-assets/${{ env.PROJECT_NAME }}-osx-x64"
+      
+      - name: Create Pre-Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.event.inputs.prerelease_name }} v${{ env.DEV_VERSION }}
+          tag_name: v${{ env.DEV_VERSION }}
+          draft: false
+          prerelease: true
+          files: |
+            release-assets/${{ env.PROJECT_NAME }}-win-x64.exe
+            release-assets/${{ env.PROJECT_NAME }}-linux-x64
+            release-assets/${{ env.PROJECT_NAME }}-osx-x64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
