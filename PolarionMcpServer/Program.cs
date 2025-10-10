@@ -1,6 +1,9 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
+using System.Reflection;
+using System.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -62,6 +65,42 @@ public class Program
                             .WriteTo.Console(standardErrorFromLevel: Serilog.Events.LogEventLevel.Verbose)
                             .CreateLogger();
 
+            // Report application version as early as possible to console and log
+            try
+            {
+                var entry = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+                string appName = entry?.GetName().Name ?? "polarion-mcp";
+                string version = "unknown";
+                // Prefer informational version, then assembly version, then file version
+                var infoAttr = entry?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+                if (!string.IsNullOrEmpty(infoAttr))
+                {
+                    version = infoAttr!;
+                }
+                else if (entry?.GetName().Version != null)
+                {
+                    version = entry.GetName().Version!.ToString()!;
+                }
+                else
+                {
+                    // Fallback to AssemblyFileVersionAttribute if available (works in single-file publish)
+                    var fileVer = entry?.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version;
+                    if (!string.IsNullOrEmpty(fileVer))
+                    {
+                        version = fileVer!;
+                    }
+                }
+
+                var versionLine = $"{appName} {version}";
+                Console.WriteLine(versionLine);
+                Log.Information("Starting {AppName} version {Version}", appName, version);
+            }
+            catch (Exception ex)
+            {
+                // If version detection fails, log but continue starting
+                Log.Warning(ex, "Failed to detect or report application version at startup.");
+            }
+
             if (projectAlias != null)
             {
                 Log.Information("Using project alias from command line: {ProjectAlias}", projectAlias);
@@ -70,6 +109,11 @@ public class Program
             // Create the DI container
             //
             var builder = Host.CreateApplicationBuilder(args);
+
+            // Make environment variables available to the configuration binder as well.
+            // This allows overrides like PolarionProjects__0__SessionConfig__Password if you prefer
+            // to use the built-in configuration binding naming convention.
+            builder.Configuration.AddEnvironmentVariables();
 
             if (!string.IsNullOrEmpty(configPath))
             {
@@ -133,14 +177,55 @@ public class Program
 
             // Log information about loaded projects
             //
-            // Log.Information("Loaded {Count} Polarion project configurations.", polarionProjects.Count);
-            // foreach(var proj in polarionProjects)
-            // {
-            //     Log.Information(" - Project Alias: {Alias}, Server: {Server}, Default: {IsDefault}", 
-            //         proj.ProjectUrlAlias, proj.SessionConfig!.ServerUrl, proj.Default);
-            // }
+            Log.Information("Loaded {Count} Polarion project configurations.", polarionProjects.Count);
+            foreach(var proj in polarionProjects)
+            {
+                Log.Information(" - Project Alias: {Alias}, Server: {Server}, Default: {IsDefault}", 
+                    proj.ProjectUrlAlias, proj.SessionConfig!.ServerUrl, proj.Default);
+            }
             
 
+            
+            // Allow overriding passwords via environment variables.
+            // Supported env var names:
+            //  - POLARION_{ALIAS}_PASSWORD  (alias normalized to [A-Z0-9_] )
+            //  - POLARION_PASSWORD  (applies to the project marked Default)
+            try
+            {
+                foreach (var proj in polarionProjects)
+                {
+                    if (proj == null) continue;
+                    var alias = proj.ProjectUrlAlias ?? string.Empty;
+                    // Normalize alias to upper-case letters, digits and underscores
+                    var norm = Regex.Replace(alias, "[^A-Za-z0-9]", "_").ToUpperInvariant();
+                    var envName = $"POLARION_{norm}_PASSWORD";
+                    var envVal = Environment.GetEnvironmentVariable(envName);
+                    if (string.IsNullOrEmpty(envVal) && proj.Default)
+                    {
+                        envVal = Environment.GetEnvironmentVariable("POLARION_PASSWORD");
+                        envName = "POLARION_PASSWORD";
+                    }
+
+                    if (!string.IsNullOrEmpty(envVal))
+                    {
+                        if (proj.SessionConfig != null)
+                        {
+                            proj.SessionConfig.Password = envVal;
+                            Log.Information("Overrode SessionConfig.Password for project '{ProjectAlias}' from env var '{EnvVarName}'", alias, envName);
+                        }
+                        else
+                        {
+                            Log.Warning("Found environment variable '{EnvVarName}' but SessionConfig is null for project '{ProjectAlias}'. Password override skipped.", envName, alias);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Error while attempting to override Polarion passwords from environment variables.");
+            }
+
+            
             // Add Serilog
             //
             builder.Services.AddSerilog();
