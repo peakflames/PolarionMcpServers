@@ -71,7 +71,7 @@ public sealed partial class McpTools
 
             if (workItemResult.IsFailed)
             {
-                return $"ERROR: (1044) Failed to fetch Polarion work items. Error: {workItemResult.Errors.First()}";
+                return $"ERROR: (1044) Failed to fetch Polarion work items. Error: {workItemResult.Errors.First()}. Note: The resulting transformed Lucene query was: '{query}'";
             }
 
             var workItems = workItemResult.Value;
@@ -103,7 +103,9 @@ public sealed partial class McpTools
 
                 var workItemMarkdownString = "";
 
+
                 workItemMarkdownString = polarionClient.ConvertWorkItemToMarkdown(workItem.id, workItem, null, true);
+                combinedWorkItems.AppendLine($"## Work Item: {workItem.id}");
                 combinedWorkItems.Append(workItemMarkdownString);
                 combinedWorkItems.AppendLine("");
             }
