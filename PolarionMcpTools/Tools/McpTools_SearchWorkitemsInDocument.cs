@@ -36,14 +36,6 @@ public sealed partial class McpTools
             return returnMsg;
         }
 
-        var searchTerms = textSearchTerms.Trim();
-
-        // Check if the string is already wrapped in parentheses and remove them.
-        if (searchTerms.StartsWith("(") && searchTerms.EndsWith(")"))
-        {
-            searchTerms = searchTerms[1..^1];
-        }
-
         await using (var scope = _serviceProvider.CreateAsyncScope())
         {
             var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
@@ -56,7 +48,7 @@ public sealed partial class McpTools
             var polarionClient = clientResult.Value;
 
             var moduleTitle = documentName;
-            var descriptionQuery = $"description:({searchTerms.Trim()})";
+            var descriptionQuery = $"description:({textSearchTerms.Trim()})";
             var moduleFilter = $"document.title:\"{moduleTitle}\" AND {descriptionQuery}";
             var workItemFields = new List<string>()
             {
@@ -92,7 +84,7 @@ public sealed partial class McpTools
             var combinedWorkItems = new StringBuilder();
 
             var documentRevisionNumber = documentRevision == "-1" ? "Latest" : documentRevision;
-            combinedWorkItems.AppendLine($"# Search Results for Polarion Work Items (Document=\"{documentName}\", searchTerms=\"{searchTerms}\", documentRevision=\"{documentRevisionNumber}\")");
+            combinedWorkItems.AppendLine($"# Search Results for Polarion Work Items (Document=\"{documentName}\", searchTerms=\"{textSearchTerms}\", documentRevision=\"{documentRevisionNumber}\")");
             combinedWorkItems.AppendLine("");
             combinedWorkItems.AppendLine($"Found {workItems.Length} Work Items.");
             combinedWorkItems.AppendLine("");
