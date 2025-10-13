@@ -62,6 +62,7 @@ public sealed partial class McpTools
                 "description",
                 "status",
                 "title",
+                "updated"
             };
 
             var query = $"{moduleFilter}";
