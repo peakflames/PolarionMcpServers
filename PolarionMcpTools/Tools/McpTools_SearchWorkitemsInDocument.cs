@@ -36,6 +36,10 @@ public sealed partial class McpTools
             return returnMsg;
         }
 
+        // ensure that the textSearchTerms string has '\' escaped quotes
+        //
+        textSearchTerms = textSearchTerms.Replace("\"", "\\\"");
+
         await using (var scope = _serviceProvider.CreateAsyncScope())
         {
             var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
