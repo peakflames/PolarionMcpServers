@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.5
+
+- Update SearchWorkitemsInDocument to accommodate cline using Lucene paraenthesis
+- Migrate to the latest mcp sdk `0.4.0-preview.2` to support streamable http
+
+## 0.4.4
+
+- Add startup version detection and reporting to console and logs
+- Add environment variables support for configuration overrides
+- Enable detailed logging of loaded Polarion project configurations
+- Add reflection and diagnostics imports for version detection
+
 ## 0.4.3
 
 Refactor MCP server architecture and consolidate configuration
