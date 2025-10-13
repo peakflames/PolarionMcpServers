@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.6
+
+- Update SearchWorkitemsInDocument to support the updated attribute to see last update timestamp
+
 ## 0.4.5
 
 - Update SearchWorkitemsInDocument to accommodate cline using Lucene paraenthesis
