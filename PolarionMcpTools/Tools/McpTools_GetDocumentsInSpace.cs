@@ -33,7 +33,7 @@ public sealed partial class McpTools
 
                 var spaceNamesList = spaceNames.Split(',');
 
-                // trim the spaces
+                // trim the spaces and convert to lowercase for case-insensitive comparison
                 spaceNamesList = spaceNamesList.Select(x => x.Trim()).ToArray();
 
                 if (spaceNamesList.Length == 0)
@@ -64,8 +64,8 @@ public sealed partial class McpTools
                         return $"ERROR: (06653) Failed to fetch Polarion document. Error: {result.Errors.First()}";
                     }
 
-                    // Filter the results by the space names
-                    modules.AddRange(result.Value.Where(x => spaceNamesList.Contains(x.Space)));
+                    // Filter the results by the space names (case-insensitive)
+                    modules.AddRange(result.Value.Where(x => spaceNamesList.Contains(x.Space, StringComparer.OrdinalIgnoreCase)));
                 }
 
                 if (modules.Count == 0)
