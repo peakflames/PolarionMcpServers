@@ -117,6 +117,66 @@ jobs:
             release-assets/${{ env.PROJECT_NAME }}-osx-x64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-docker:
+    needs: create-release
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building Docker image version: $VERSION"
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and publish Docker container to Docker Hub
+        run: |
+          dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj \
+            /t:PublishContainer \
+            --os linux --arch x64 \
+            /p:Version=${{ steps.get_version.outputs.version }} \
+            /p:ContainerImageTag=${{ steps.get_version.outputs.version }} \
+            /p:ContainerRegistry=docker.io
+
+      - name: Tag image as latest
+        run: |
+          # Pull the image that was just pushed
+          docker pull peakflames/polarion-remote-mcp-server:${{ steps.get_version.outputs.version }}
+          # Tag it as latest
+          docker tag peakflames/polarion-remote-mcp-server:${{ steps.get_version.outputs.version }} peakflames/polarion-remote-mcp-server:latest
+          # Push the latest tag
+          docker push peakflames/polarion-remote-mcp-server:latest
+
+      - name: Sync README to Docker Hub
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: peakflames/polarion-remote-mcp-server
+          short-description: ${{ github.event.repository.description }}
+          readme-filepath: ./README.md
+          enable-url-completion: true
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Docker build and push failed for version ${{ steps.get_version.outputs.version }}"
           
   create-develop-prerelease:
     needs: build
