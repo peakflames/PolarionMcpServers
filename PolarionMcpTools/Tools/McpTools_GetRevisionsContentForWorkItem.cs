@@ -54,9 +54,9 @@ public sealed partial class McpTools
                     return returnMsg;
                 }
 
-                var revisions = revisionsResult.Value;
+                var revisionsDict = revisionsResult.Value;
 
-                if (revisions == null || revisions.Length == 0)
+                if (revisionsDict == null || revisionsDict.Count == 0)
                 {
                     returnMsg = $"## Revision History for WorkItem '{workItemId}'\n\nNo revisions found.";
                     return returnMsg;
@@ -67,20 +67,22 @@ public sealed partial class McpTools
                 sb.AppendLine();
 
                 string limitDescription = limit == -1 ? "all" : $"latest {limit}";
-                sb.AppendLine($"Showing {limitDescription} revision{(revisions.Length != 1 ? "s" : "")} (newest to oldest)");
+                sb.AppendLine($"Showing {limitDescription} revision{(revisionsDict.Count != 1 ? "s" : "")} (newest to oldest)");
                 sb.AppendLine();
 
                 var markdownConverter = new ReverseMarkdown.Converter();
 
-                for (int i = 0; i < revisions.Length; i++)
+                int i = 0;
+                foreach (var kvp in revisionsDict)
                 {
-                    var revision = revisions[i];
+                    var revisionId = kvp.Key;
+                    var revision = kvp.Value;
                     bool isLatest = (i == 0);
 
                     sb.AppendLine("---");
                     sb.AppendLine();
 
-                    string revisionHeader = $"### Revision {i + 1}";
+                    string revisionHeader = $"### Revision {i + 1} (ID: {revisionId})";
                     if (isLatest)
                     {
                         revisionHeader += " (Latest)";
@@ -127,6 +129,7 @@ public sealed partial class McpTools
                     }
 
                     sb.AppendLine();
+                    i++;
                 }
 
                 return sb.ToString();
