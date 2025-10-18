@@ -2,7 +2,9 @@
 
 ## 0.4.8
 
-- - Upgrade Polarion package from 0.2.1 to 0.3.0 for access to new revision-oriented apis
+- Upgrade Polarion package from 0.2.1 to 0.3.1 for access to new revision-oriented apis
+- Add `get_revisions_list_for_workitem` tool to retrieve revision IDs for a work item
+- Add `get_revisions_content_for_workitem` tool to retrieve detailed content at each revision
 
 ## 0.4.7
 
