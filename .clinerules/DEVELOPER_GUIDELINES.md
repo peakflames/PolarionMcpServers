@@ -88,6 +88,16 @@ This document outlines the essential rules and conventions for the PolarionMcpSe
    - The project ID is extracted from the route parameter
    - If no project ID is provided, the default project is used
 
+3. **API Documentation Reference**:
+   - Complete API documentation is available at: https://github.com/peakflames/PolarionApiClient/blob/main/api.md
+   - **For Cline/AI Assistants**: When you need detailed information about available Polarion client methods, their signatures, parameters, or usage, use your web_fetch or similar tools to retrieve the API documentation from the above URL
+   - The documentation includes all available methods with complete signatures, parameter descriptions, return types, and usage examples
+   - Key method categories include:
+     - Work Item Operations (GetWorkItemByIdAsync, SearchWorkitemAsync, etc.)
+     - Module Operations (GetModulesInSpaceThinAsync, GetModuleByLocationAsync, etc.)
+     - Markdown Export Operations (ExportModuleToMarkdownAsync, ConvertWorkItemToMarkdown, etc.)
+     - Revision Operations (GetRevisionIdsAsync, GetWorkItemRevisionsByIdAsync, etc.)
+
 ## Logging Conventions
 
 - Use Serilog for logging
@@ -119,7 +129,36 @@ This document outlines the essential rules and conventions for the PolarionMcpSe
     <ContainerRepository>peakflames/polarion-remote-mcp-server</ContainerRepository>
     ```
 
+## AI Assistant Guidelines (Cline Rules)
+
+When working on this project as an AI assistant:
+
+1. **Always fetch API documentation when needed**:
+   - If you need to understand available Polarion client methods, use `web_fetch` to retrieve: https://github.com/peakflames/PolarionApiClient/blob/main/api.md
+   - Don't guess method signatures or parameters - always reference the official documentation
+   - The API documentation includes complete method signatures, parameter types, return types, and descriptions
+
+2. **Follow established patterns**:
+   - Look at existing tool implementations in `PolarionMcpTools/Tools/` for patterns
+   - Use the same error handling, logging, and return format conventions
+   - Follow the dependency injection patterns shown in existing code
+
+3. **Validate your understanding**:
+   - When implementing new tools, cross-reference the API documentation to ensure correct usage
+   - Pay attention to async/await patterns and Result<T> return types
+   - Use the `[RequiresUnreferencedCode]` attribute for methods that call Polarion APIs
+
 ## C# Coding Conventions
 
 - Use `var` for all variables
 - Use curly braces for all blocks
+
+## MCP Tool Attribute Syntax
+
+- Use multi-line format for MCP tool attributes:
+  ```csharp
+  [McpServerTool(Name = "tool_name"),
+   Description("Tool description")]
+  ```
+- Do NOT use `[McpServerTool(Name = "...", Description = "...")]` - Description must be a separate attribute on its own line
+- Always check existing tool files for the exact syntax pattern
