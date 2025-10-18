@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0
+
+- TBD
+
 ## 0.4.9
 
 - Upgrade Polarion package from 0.3.1 to 0.3.2 to support updated API interfaces
