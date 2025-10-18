@@ -1,13 +1,12 @@
 # Changelog
 
-
 ## 0.4.8
 
-- TBD
+- - Upgrade Polarion package from 0.2.1 to 0.3.0 for access to new revision-oriented apis
 
 ## 0.4.7
 
-- Upgrade Polarion package from 0.2.0 to 0.2.1 to allows get_documents to be case insensative
+- Upgrade Polarion package from 0.2.0 to 0.2.1 to allow get_documents to be case insensative
 - Add case-insensitive space name filtering in GetDocumentsInSpace
 
 ## 0.4.6
