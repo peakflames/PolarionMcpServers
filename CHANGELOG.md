@@ -1,8 +1,14 @@
 # Changelog
 
+## 0.4.8
+
+- Upgrade Polarion package from 0.2.1 to 0.3.1 for access to new revision-oriented apis
+- Add `get_revisions_list_for_workitem` tool to retrieve revision IDs for a work item
+- Add `get_revisions_content_for_workitem` tool to retrieve detailed content at each revision
+
 ## 0.4.7
 
-- Upgrade Polarion package from 0.2.0 to 0.2.1 to allows get_documents to be case insensative
+- Upgrade Polarion package from 0.2.0 to 0.2.1 to allow get_documents to be case insensative
 - Add case-insensitive space name filtering in GetDocumentsInSpace
 
 ## 0.4.6
