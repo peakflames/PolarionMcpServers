@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.9
+
+- Upgrade Polarion package from 0.3.1 to 0.3.2 to support updated API interfaces
+- Update `get_revisions_content_for_workitem` tool to handle dictionary return type with revision IDs as keys
+- Add new tool `get_text_for_workitem_at_revision` to retrieve a single work item at a specific revision
+
 ## 0.4.8
 
 - Upgrade Polarion package from 0.2.1 to 0.3.1 for access to new revision-oriented apis
