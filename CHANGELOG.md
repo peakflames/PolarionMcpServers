@@ -1,5 +1,10 @@
 # Changelog
 
+
+## 0.4.8
+
+- TBD
+
 ## 0.4.7
 
 - Upgrade Polarion package from 0.2.0 to 0.2.1 to allows get_documents to be case insensative
