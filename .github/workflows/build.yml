@@ -164,24 +164,14 @@ jobs:
           docker push peakflames/polarion-remote-mcp-server:latest
 
       - name: Sync README to Docker Hub
-        run: |
-          # Read README content and escape for JSON
-          README_CONTENT=$(jq -Rs . < README.md)
-          
-          # Get Docker Hub token
-          TOKEN=$(curl -s -X POST \
-            -H "Content-Type: application/json" \
-            -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' \
-            https://hub.docker.com/v2/users/login/ | jq -r .token)
-          
-          # Update repository description
-          curl -X PATCH \
-            -H "Authorization: JWT ${TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "{\"full_description\": ${README_CONTENT}}" \
-            https://hub.docker.com/v2/repositories/peakflames/polarion-remote-mcp-server/
-          
-          echo "README synced to Docker Hub successfully"
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: peakflames/polarion-remote-mcp-server
+          short-description: ${{ github.event.repository.description }}
+          readme-filepath: ./README.md
+          enable-url-completion: true
 
       - name: Notify on failure
         if: failure()
