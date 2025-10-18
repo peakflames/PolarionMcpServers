@@ -156,7 +156,11 @@ jobs:
 
       - name: Tag image as latest
         run: |
+          # Pull the image that was just pushed
+          docker pull peakflames/polarion-remote-mcp-server:${{ steps.get_version.outputs.version }}
+          # Tag it as latest
           docker tag peakflames/polarion-remote-mcp-server:${{ steps.get_version.outputs.version }} peakflames/polarion-remote-mcp-server:latest
+          # Push the latest tag
           docker push peakflames/polarion-remote-mcp-server:latest
 
       - name: Sync README to Docker Hub
