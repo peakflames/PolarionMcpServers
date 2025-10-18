@@ -162,3 +162,9 @@ When working on this project as an AI assistant:
   ```
 - Do NOT use `[McpServerTool(Name = "...", Description = "...")]` - Description must be a separate attribute on its own line
 - Always check existing tool files for the exact syntax pattern
+
+## Documentation Guidelines
+
+- Do NOT create summary/setup/guide markdown files unless explicitly requested
+- Complete the task and use attempt_completion to explain what was done
+- Keep explanations concise in the attempt_completion result

@@ -117,6 +117,72 @@ jobs:
             release-assets/${{ env.PROJECT_NAME }}-osx-x64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-docker:
+    needs: create-release
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building Docker image version: $VERSION"
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and publish Docker container to Docker Hub
+        run: |
+          dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj \
+            /t:PublishContainer \
+            --os linux --arch x64 \
+            /p:Version=${{ steps.get_version.outputs.version }} \
+            /p:ContainerImageTag=${{ steps.get_version.outputs.version }} \
+            /p:ContainerRegistry=docker.io
+
+      - name: Tag image as latest
+        run: |
+          docker tag peakflames/polarion-remote-mcp-server:${{ steps.get_version.outputs.version }} peakflames/polarion-remote-mcp-server:latest
+          docker push peakflames/polarion-remote-mcp-server:latest
+
+      - name: Sync README to Docker Hub
+        run: |
+          # Read README content and escape for JSON
+          README_CONTENT=$(jq -Rs . < README.md)
+          
+          # Get Docker Hub token
+          TOKEN=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"username": "${{ secrets.DOCKERHUB_USERNAME }}", "password": "${{ secrets.DOCKERHUB_TOKEN }}"}' \
+            https://hub.docker.com/v2/users/login/ | jq -r .token)
+          
+          # Update repository description
+          curl -X PATCH \
+            -H "Authorization: JWT ${TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"full_description\": ${README_CONTENT}}" \
+            https://hub.docker.com/v2/repositories/peakflames/polarion-remote-mcp-server/
+          
+          echo "README synced to Docker Hub successfully"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Docker build and push failed for version ${{ steps.get_version.outputs.version }}"
           
   create-develop-prerelease:
     needs: build

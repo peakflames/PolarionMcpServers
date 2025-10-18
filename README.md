@@ -5,17 +5,22 @@ This repository contains Model Context Protocol (MCP) server implementations for
 MCP Tools are available for Polarion work items, including:
 
 - `get_text_for_workitems_by_id`: Gets the main text content for specified WorkItem IDs.
+- `get_details_for_workitems`: Gets detailed information for specified WorkItem IDs including status, type, assignee, and other standard fields.
 - `get_documents`: Lists documents in the project, optionally filtered by title.
 - `get_documents_by_space_names`: Lists documents within specified space names.
 - `get_space_names`: Lists all available space names in the project.
+- `get_sections_in_document`: Gets the list of sections in a document.
+- `get_section_content_in_document`: Gets the content of a specific section in a document.
 - `search_workitems_in_document`: Searches for WorkItems within a document based on text criteria.
 - `get_configured_custom_fields`: Retrieves the list of custom fields configured for a specific WorkItem type ID, based on the current project's settings.
 - `list_configured_workitem_types`: Lists all WorkItem type IDs that have custom field configurations defined in the current project's settings.
 - `get_custom_fields_for_workitems`: Retrieves specified custom field values for a given list of WorkItem IDs.
+- `get_revisions_list_for_workitem`: Gets the list of revision IDs for a specific work item, ordered from newest to oldest.
+- `get_revisions_content_for_workitem`: Gets the content of a work item at different revisions, including title, status, description, and other standard fields.
 
 ## Projects
 
-- **PolarionRemoteMcpServer**: SSE-based MCP server for server based installations
+- **PolarionRemoteMcpServer**: (Streamable HTTP or SSE) based MCP server for server based installations
 - **PolarionMcpServer**: Console-based MCP server for Polarion integration for local workstation installations
 
 ## Running via Docker & Linux Server (Recommended)
@@ -102,8 +107,10 @@ MCP Tools are available for Polarion work items, including:
      peakflames/polarion-remote-mcp-server
    ```
 
-1. The server should now be running. MCP clients will connect using a URL specific to the desired project configuration alias: `http://{{your-server-ip}}:8080/{ProjectUrlAlias}/sse`.
-1. 📢IMPORTANT - Do NOT run with replica instances of the server as the session connection will not be shared between replicas.
+1. The server should now be running. MCP clients will connect using a URL specific to the desired project configuration alias:
+   1. Streamable HTTP Transport: `http://{{your-server-ip}}:8080/{ProjectUrlAlias}`.
+   2. SSE Transport: `http://{{your-server-ip}}:8080/{ProjectUrlAlias}/sse`.
+2. 📢IMPORTANT - Do NOT run with replica instances of the server as the session connection will not be shared between replicas.
 
 ### Configuration Options (`appsettings.json`)
 
@@ -208,45 +215,17 @@ Claude Desktop currently doesn’t support SSE, but you can use a proxy with the
 }
 ```
 
-## Building the Projects
+## Running Locally (stdio)
 
-### Prerequisites
+For local development or workstation use, you can run the stdio-based MCP server:
 
-- .NET 9.0 SDK or later
-- Docker (for container deployment)
+1. Download the appropriate executable for your platform from the [releases page](https://github.com/peakflames/PolarionMcpServers/releases)
+2. Configure your MCP client to use the stdio transport with the executable path
 
-### Building Locally
+## Contributing
 
-To build the projects locally:
+For developers who want to contribute or build from source, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-```bash
-dotnet build PolarionMcpServers.sln
-```
+## License
 
-### Building Docker Image
-
-1. Roll the version and image tag by setting the `Version` & `ContainerImageTag` properties in `PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj`
-1. Build the project and image locally:
-
-```bash
-dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj /t:PublishContainer -r linux-x64 
-```
-
-### Publishing to a Docker Registry
-
-1. Roll the version and image tag by setting the `Version` & `ContainerImageTag` properties in `PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj`
-1. Build the project and image and publish to your Docker registry:
-
-```bash
-dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj /t:PublishContainer -r linux-x64 
-docker push peakflames/polarion-remote-mcp-server:{{VERSION}}
-```
-
-## Debugging the SSE MCP Server
-
-1. Start the MCP Server project
-1. From a terminal, run `npx @modelcontextprotocol/inspector`
-1. From you browser, navigate to `http://localhost:{{PORT}}`
-1. Configure the inspector to connect to the server
-   i. TransportType: SSE
-   i. URL: http://{{your-server-ip}}:5090/{ProjectUrlAlias}/sse
+See [LICENSE](LICENSE) for details.
