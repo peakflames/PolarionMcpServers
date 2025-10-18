@@ -152,3 +152,13 @@ When working on this project as an AI assistant:
 
 - Use `var` for all variables
 - Use curly braces for all blocks
+
+## MCP Tool Attribute Syntax
+
+- Use multi-line format for MCP tool attributes:
+  ```csharp
+  [McpServerTool(Name = "tool_name"),
+   Description("Tool description")]
+  ```
+- Do NOT use `[McpServerTool(Name = "...", Description = "...")]` - Description must be a separate attribute on its own line
+- Always check existing tool files for the exact syntax pattern
