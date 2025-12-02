@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2
+
+- add Id column to get_documents tool output
+
 ## 0.5.1
 
 - Rename and clean up GetDetailsForDocuments tool

@@ -110,6 +110,8 @@ git push origin vX.X.X
 - Build and publish Docker image to Docker Hub
 - Tag Docker image as `latest`
 
+Use the 'ask_followup_question' tool to ask the user if want to navigate to the Github Actions workflow page `https://github.com/peakflames/PolarionMcpServers/actions` and monitor the workflow status:
+
 ## Step 7: Return to Develop and Bump Version
 
 Use the 'execute_command' tool to return to develop branch:
