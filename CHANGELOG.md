@@ -2,7 +2,7 @@
 
 ## 0.5.2
 
-- TBD
+- add Id column to get_documents tool output
 
 ## 0.5.1
 
