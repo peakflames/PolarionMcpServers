@@ -168,3 +168,23 @@ When working on this project as an AI assistant:
 - Do NOT create summary/setup/guide markdown files unless explicitly requested
 - Complete the task and use attempt_completion to explain what was done
 - Keep explanations concise in the attempt_completion result
+
+## ⚠️ CRITICAL: appsettings.json Security Rule
+
+**NEVER commit, add, reset, checkout, discard, or modify `PolarionRemoteMcpServer/appsettings.json` in any git operation.**
+
+This file contains sensitive credentials (usernames, passwords, server URLs) that must be protected at all costs. The file should be treated as if it doesn't exist when performing any git operations:
+
+- ❌ NEVER use `git add PolarionRemoteMcpServer/appsettings.json`
+- ❌ NEVER include it in commits
+- ❌ NEVER stage changes to this file
+- ❌ NEVER reset or checkout this file
+- ❌ NEVER discard changes to this file through git
+
+**During release processes and any git operations:**
+- Always explicitly exclude this file from staging
+- If git status shows it as modified, ignore it completely
+- Only stage and commit the specific files needed for the task
+- Use explicit file paths in `git add` commands rather than wildcards that might accidentally include it
+
+**Violation of this rule could expose sensitive credentials and compromise security.**
