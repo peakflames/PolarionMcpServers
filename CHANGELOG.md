@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2
+
+- TBD
+
 ## 0.5.1
 
 - Rename and clean up GetDetailsForDocuments tool
