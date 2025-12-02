@@ -2,7 +2,11 @@
 
 ## 0.5.0
 
-- TBD
+- Add new tool `get_details_for_documents` to retrieve comprehensive details for Polarion documents/modules
+  - Supports retrieving standard fields and custom fields
+  - Allows filtering custom fields with whitelist, 'all', or 'none' options
+  - Uses configurable default fields from project configuration
+- Add `PolarionDocumentDefaultFields` property to `PolarionProjectConfig` to define default document fields to retrieve when no specific fields are requested
 
 ## 0.4.9
 
