@@ -2,7 +2,7 @@
 
 ## 0.5.1
 
-- TBD
+- Rename and clean up GetDetailsForDocuments tool
 
 ## 0.5.0
 
