@@ -6,7 +6,7 @@ public sealed partial class McpTools
     [McpServerTool(Name = "get_documents"), 
         Description(
             "Gets the listing of all Documents in the Polarion Project with an otional filter by Title. " +
-            "Results is a Markdwon table containing the documents with the following columns: Title, Space, Type, Status."
+            "Results is a Markdwon table containing the documents with the following columns: Id, Title, Space, Type, Status."
          )]
     public async Task<string> GetDocuments(
         
@@ -58,11 +58,11 @@ public sealed partial class McpTools
                     combinedWorkItems.AppendLine($"# Polarion Documents with Title containing '{titleContains}'");
                 }
 
-                combinedWorkItems.AppendLine($"| Title | Space | Type | Status |");
-                combinedWorkItems.AppendLine($"| ---   | ---   | ---  | ------ |");
+                combinedWorkItems.AppendLine($"| Id  | Title | Space | Type | Status |");
+                combinedWorkItems.AppendLine($"| --- | --- | --- | ---  | --- |");
                 foreach (var module in modules)
                 {
-                    combinedWorkItems.AppendLine($"| {module.Title} | {module.Space} | {module.Type} | {module.Status} |");
+                    combinedWorkItems.AppendLine($"| {module.Id} | {module.Title} | {module.Space} | {module.Type} | {module.Status} |");
                 }
                 
                 return combinedWorkItems.ToString();
