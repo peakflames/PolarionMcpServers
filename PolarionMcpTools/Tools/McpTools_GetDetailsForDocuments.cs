@@ -5,17 +5,13 @@ namespace PolarionMcpTools;
 public sealed partial class McpTools
 {
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
-    [McpServerTool(Name = "get_details_for_documents"), Description("Gets additional details for a list of WorkItem IDs such as standard fields, custom fields, and linked work items.")]
+    [McpServerTool(Name = "get_details_for_document"), Description("Gets additional details for for a Polarion Document such as standard fields and custom fields")]
     public async Task<string> GetDetailsForDocuments(
         [Description("The Polarion Space.")] string space,
         [Description("The Polarion Document/Module Id (NOT the Document Title).")] string documentId,
         [Description("A comma-separated list of custom field names to retrieve (e.g., 'priority,severity,myCustomField'). Set to 'all' to retrieve all fields. Set to 'none' to not retrieve any custom fields.")] string customFieldWhitelist
         )
     {
-        // var space = "l5_sw";
-        // var documentName = "l5_fcc_core_app_srs";
-        
-
         if (string.IsNullOrWhiteSpace(space))
         {
             return "ERROR: 'spaceName' parameter cannot be empty or whitespace.";
@@ -58,23 +54,6 @@ public sealed partial class McpTools
                 }
 
                 var module = getModuleResult.Value;
-
-                // General
-                //---------------------------------
-                // Title: $"{module.title}"
-                // Status: $"{module.status}" EnumOptionId
-                // Author: $"{module.author.name} - {module.author.description.content}"
-                // Created: $"{module.created}"
-                // Last Updated: $"{module.updated}"
-                // Last Updated By: $"{module.updatedBy.name}"
-
-
-                // Allowed WorkItem Types
-                // --------------------------------
-                // - module.allowedWITypes[i].id
-
-                // Custom Fields
-                // --------------------------
 
                 sb.AppendLine($"# Document (space='{space}', id='{documentId}')");
                 sb.AppendLine();
@@ -155,11 +134,11 @@ public sealed partial class McpTools
 
                 
             }
-            catch (Exception ex) // Catch issues with the GetWorkItemByIdAsync call or other unexpected errors
+            catch (Exception ex)
             {
                 sb.AppendLine($"- ERROR: Failed to retrieve document details due to exception: {ex.Message}");
             }
-            sb.AppendLine(); // Add a blank line after each WorkItem's details
+            sb.AppendLine();
             
         }
         return sb.ToString();

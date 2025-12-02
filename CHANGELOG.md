@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1
+
+- Rename and clean up GetDetailsForDocuments tool
+
 ## 0.5.0
 
 - Add new tool `get_details_for_documents` to retrieve comprehensive details for Polarion documents/modules
