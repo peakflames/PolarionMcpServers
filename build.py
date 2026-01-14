@@ -295,14 +295,14 @@ def search_log(pattern: Optional[str] = None, tail: int = 0, level: Optional[str
 
 
 async def run_mcp_command(subcommand: str, tool_name: Optional[str] = None, 
-                          tool_args: Optional[str] = None, timeout: int = 60) -> int:
+                          tool_args: Optional[str] = None, timeout: int = 200) -> int:
     """Execute MCP client commands against the running server.
     
     Args:
         subcommand: The MCP subcommand (tools, call, ping, info)
         tool_name: Name of the tool to call (for 'call' subcommand)
         tool_args: JSON string of arguments for tool call
-        timeout: Timeout in seconds for operations (default: 60)
+        timeout: Timeout in seconds for operations (default: 200)
     
     Returns:
         Exit code (0 for success, 1 for error)
@@ -429,9 +429,9 @@ async def run_mcp_command(subcommand: str, tool_name: Optional[str] = None,
 
 
 def run_mcp(subcommand: str, tool_name: Optional[str] = None, 
-            tool_args: Optional[str] = None) -> int:
+            tool_args: Optional[str] = None, timeout: int = 200) -> int:
     """Synchronous wrapper for run_mcp_command."""
-    return asyncio.run(run_mcp_command(subcommand, tool_name, tool_args))
+    return asyncio.run(run_mcp_command(subcommand, tool_name, tool_args, timeout))
 
 
 def print_usage() -> None:
