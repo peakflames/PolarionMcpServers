@@ -2,7 +2,10 @@
 
 ## 0.5.3
 
-- TBD
+- Add document branching support with two new MCP tools:
+  - `get_workitems_in_branched_document` - Retrieves work items from a branched document at a specific revision using a 4-step revision-aware algorithm that correctly fetches historical versions when they differ from HEAD
+  - `get_workitems_in_module` - Queries work items using SQL against the `REL_MODULE_WORKITEM` relationship table for fast retrieval of module contents
+- Upgrade Polarion package from 0.3.2 to 0.3.3 to fix URI format issues in `getModuleWorkItemUris` API
 
 ## 0.5.2
 
