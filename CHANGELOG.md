@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.6.0
+
+Major API reorganization for improved LLM workflow support. Reduces tool count from 16 to 11 through consolidation and standardizes parameter naming across all tools.
+
+### Breaking Changes
+
+**Tool Renames:**
+
+- `get_space_names` → `list_spaces`
+- `get_documents` + `get_documents_by_space_names` → `list_documents` (consolidated)
+- `list_available_workitem_types` → `list_workitem_types`
+- `list_available_custom_fields_for_workitem_types` → `list_custom_fields`
+- `get_details_for_document` → `get_document_info`
+- `get_sections_in_document` → `get_document_outline`
+- `get_section_content_for_document` → `get_document_section`
+- `search_workitems_in_document` → `search_in_document`
+- `get_text_for_workitems_by_id` + `get_text_for_workitem_at_revision` → `get_workitem` (consolidated)
+- `get_details_for_workitems` → `get_workitem_details` (enhanced)
+- `get_revisions_list_for_workitem` + `get_revisions_content_for_workitem` → `get_workitem_history` (consolidated)
+
+**Parameter Renames:**
+
+- `documentName` → `documentTitle` (document tools)
+- `documentRevision` → `revision` (document tools)
+- `documentNumber` → `sectionNumber` (`get_document_section`)
+- `textSearchTerms` → `searchQuery` (`search_in_document`)
+- `moduleFolder` → `space` (module tools)
+- `workItemId` → `workitemId` (workitem tools)
+- `customFieldWhitelist` → `customFields` (detail tools)
+
+### Added
+
+- `get_workitem_details`: New traceability parameters (`linkDirection`, `linkTypeFilter`, `followLevels`) for recursive link traversal
+- `list_documents`: Consolidated tool with optional `space` and `titleFilter` parameters
+- `get_workitem`: Consolidated tool with optional `revision` parameter
+
+### Removed
+
+- `get_documents_by_space_names` (merged into `list_documents`)
+- `get_text_for_workitem_at_revision` (merged into `get_workitem`)
+- `get_revisions_list_for_workitem` (merged into `get_workitem_history`)
+
+## 0.5.3
+
+- Add document branching support with two new MCP tools:
+  - `get_workitems_in_branched_document` - Retrieves work items from a branched document at a specific revision using a 4-step revision-aware algorithm that correctly fetches historical versions when they differ from HEAD
+  - `get_workitems_in_module` - Queries work items using SQL against the `REL_MODULE_WORKITEM` relationship table for fast retrieval of module contents
+- Upgrade Polarion package from 0.3.2 to 0.3.3 to fix URI format issues in `getModuleWorkItemUris` API
+
 ## 0.5.2
 
 - add Id column to get_documents tool output

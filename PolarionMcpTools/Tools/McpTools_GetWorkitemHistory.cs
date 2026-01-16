@@ -1,88 +1,68 @@
-using System.ComponentModel;
-
 namespace PolarionMcpTools;
 
 public sealed partial class McpTools
 {
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
-    [McpServerTool
-            (Name = "get_revisions_content_for_workitem"),
-            Description(
-                 "Gets the content of a work item at different revisions. Returns detailed information including title, status, description, and other standard fields for each revision. " +
-                 "Supports configurable limit of revisions to return (default: 2, use -1 for all revisions). " +
-                 "If the WorkItem is not found or encounters errors obtaining revisions it will return a descriptive error message."
-     )]
-    public async Task<string> GetRevisionsContentForWorkItem(
-        [Description("The WorkItem ID (e.g., 'MD-12345')")] string workItemId,
-        [Description("Maximum number of revisions to return (default: 2). Set to -1 to return all revisions.")] int limit = 2)
+    [McpServerTool(Name = "get_workitem_history"),
+     Description("Gets the revision history for a WorkItem including content at each revision. Returns detailed information including title, status, and description for each revision.")]
+    public async Task<string> GetWorkitemHistory(
+        [Description("The WorkItem ID (e.g., 'MD-12345').")] string workitemId,
+        [Description("Maximum number of revisions to return. Use -1 for all revisions.")] int limit = 5)
     {
-        string? returnMsg;
+        // Input validation
+        if (string.IsNullOrWhiteSpace(workitemId))
+        {
+            return "ERROR: workitemId parameter cannot be empty.";
+        }
 
         await using (var scope = _serviceProvider.CreateAsyncScope())
         {
-            IPolarionClientFactory? clientFactory;
-
-            try
-            {
-                clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
-            }
-            catch (Exception ex)
-            {
-                returnMsg = $"ERROR: Failed to get Polarion Client Factory due to exception '{ex.Message}'";
-                if (ex.InnerException != null)
-                {
-                    returnMsg += $"\nInner Exception: {ex.InnerException.Message}";
-                }
-                return returnMsg;
-            }
-
+            var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
             var clientResult = await clientFactory.CreateClientAsync();
             if (clientResult.IsFailed)
             {
-                return clientResult.Errors.First().ToString() ?? "Internal Error (3584) unknown error when creating Polarion client";
+                return clientResult.Errors.FirstOrDefault()?.Message ?? "ERROR: Unknown error when creating Polarion client.";
             }
 
             var polarionClient = clientResult.Value;
 
             try
             {
-                var revisionsResult = await polarionClient.GetWorkItemRevisionsByIdAsync(workItemId, limit);
+                var revisionsResult = await polarionClient.GetWorkItemRevisionsByIdAsync(workitemId, limit);
 
                 if (revisionsResult.IsFailed)
                 {
-                    returnMsg = $"ERROR: (201) Failed to retrieve revisions for '{workItemId}'. Error: {revisionsResult.Errors.First()}";
-                    return returnMsg;
+                    return $"ERROR: Failed to retrieve revisions for '{workitemId}': {revisionsResult.Errors.FirstOrDefault()?.Message ?? "Unknown error"}";
                 }
 
                 var revisionsDict = revisionsResult.Value;
 
                 if (revisionsDict == null || revisionsDict.Count == 0)
                 {
-                    returnMsg = $"## Revision History for WorkItem '{workItemId}'\n\nNo revisions found.";
-                    return returnMsg;
+                    return $"## Revision History for WorkItem '{workitemId}'\n\nNo revisions found.";
                 }
 
                 var sb = new StringBuilder();
-                sb.AppendLine($"## Revision History for WorkItem '{workItemId}'");
+                sb.AppendLine($"## Revision History for WorkItem '{workitemId}'");
                 sb.AppendLine();
 
-                string limitDescription = limit == -1 ? "all" : $"latest {limit}";
+                var limitDescription = limit == -1 ? "all" : $"latest {limit}";
                 sb.AppendLine($"Showing {limitDescription} revision{(revisionsDict.Count != 1 ? "s" : "")} (newest to oldest)");
                 sb.AppendLine();
 
                 var markdownConverter = new ReverseMarkdown.Converter();
 
-                int i = 0;
+                var i = 0;
                 foreach (var kvp in revisionsDict)
                 {
                     var revisionId = kvp.Key;
                     var revision = kvp.Value;
-                    bool isLatest = (i == 0);
+                    var isLatest = (i == 0);
 
                     sb.AppendLine("---");
                     sb.AppendLine();
 
-                    string revisionHeader = $"### Revision {i + 1} (ID: {revisionId})";
+                    var revisionHeader = $"### Revision {i + 1} (ID: {revisionId})";
                     if (isLatest)
                     {
                         revisionHeader += " (Latest)";
@@ -136,13 +116,13 @@ public sealed partial class McpTools
             }
             catch (Exception ex)
             {
-                returnMsg = $"ERROR: Failed to retrieve revision content for '{workItemId}' due to exception '{ex.Message}'";
+                var errorMsg = $"ERROR: Failed to retrieve revision history for '{workitemId}' due to exception '{ex.Message}'";
                 if (ex.InnerException != null)
                 {
-                    returnMsg += $"\nInner Exception: {ex.InnerException.Message}";
+                    errorMsg += $"\nInner Exception: {ex.InnerException.Message}";
                 }
-                return returnMsg;
+                return errorMsg;
             }
-        } // Close the scope
+        }
     }
 }

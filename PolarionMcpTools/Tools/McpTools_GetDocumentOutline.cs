@@ -1,26 +1,23 @@
-﻿namespace PolarionMcpTools;
+namespace PolarionMcpTools;
 
 public sealed partial class McpTools
 {
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
-    [McpServerTool(Name = "get_sections_in_document"), Description("Get all section headings within a Polarion Document. Results in a Markdwon document of only headings.")]
-    public async Task<string> GetSectionsInDocument(
-        [Description("Name of Polarion document")]
-        string documentName,
-
-        [Description("To use latest, set to -1")]
-        string documentRevision
-    )
+    [McpServerTool(Name = "get_document_outline"),
+     Description("Gets all section headings (table of contents) within a Polarion Document. Returns a Markdown document of only headings.")]
+    public async Task<string> GetDocumentOutline(
+        [Description("The title of the Polarion document.")] string documentTitle,
+        [Description("Document revision. Use '-1' for latest revision.")] string revision = "-1")
     {
         string? returnMsg;
-        
+
         await using (var scope = _serviceProvider.CreateAsyncScope())
         {
             var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
             var clientResult = await clientFactory.CreateClientAsync();
             if (clientResult.IsFailed)
             {
-                return clientResult.Errors.First().ToString() ?? "Internal Error (3584) unknown error when creating Polarion client";
+                return clientResult.Errors.First().ToString() ?? "ERROR: Unknown error when creating Polarion client";
             }
 
             var polarionClient = clientResult.Value;
@@ -29,25 +26,24 @@ public sealed partial class McpTools
             {
                 // Get the current project configuration to check for blacklist pattern
                 var projectConfig = GetCurrentProjectConfig();
-                
+
                 var workItemPrefix = projectConfig?.WorkItemPrefix;
                 if (string.IsNullOrWhiteSpace(workItemPrefix))
                 {
-                    returnMsg = $"ERROR: (100) No workItemPrefix was provided in the configuration";
+                    returnMsg = $"ERROR: No workItemPrefix was provided in the configuration";
                     return returnMsg;
                 }
 
                 var polarionFilter = PolarionFilter.Create("type:heading", true, false, [], false);
-                var targetDocumentRevision = documentRevision == "-1" ? null : documentRevision;
+                var targetDocumentRevision = revision == "-1" ? null : revision;
 
                 var results = await polarionClient.ExportModuleToMarkdownAsync(
-                    workItemPrefix, documentName, polarionFilter, [], true, targetDocumentRevision);
+                    workItemPrefix, documentTitle, polarionFilter, [], true, targetDocumentRevision);
                 if (results.IsFailed)
                 {
-                    return $"ERROR: (3859) Failed to get headings for document. Error: {results.Errors.First()}";
+                    return $"ERROR: Failed to get headings for document. Error: {results.Errors.First()}";
                 }
 
-                var stringBuilder = results.Value;
                 return results.Value.ToString();
             }
             catch (Exception ex)
@@ -59,6 +55,6 @@ public sealed partial class McpTools
                 }
                 return returnMsg;
             }
-        } // Close the scope
+        }
     }
 }
