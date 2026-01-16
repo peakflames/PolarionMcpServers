@@ -10,18 +10,18 @@ public sealed partial class McpTools
          "Optionally filter by work item types."
      )]
     public async Task<string> GetWorkItemsInModule(
-        [Description("The module folder path (e.g., 'FCC_L4_Air8_1')")]
-        string moduleFolder,
+        [Description("The Polarion space name (e.g., 'FCC_L4_Air8_1').")]
+        string space,
 
-        [Description("The document ID within the module folder")]
+        [Description("The document ID within the space.")]
         string documentId,
 
         [Description("Optional comma-separated list of work item types to filter (e.g., 'requirement,testCase'). Leave empty for all types.")]
         string? itemTypes = null)
     {
-        if (string.IsNullOrWhiteSpace(moduleFolder))
+        if (string.IsNullOrWhiteSpace(space))
         {
-            return "ERROR: (100) Module folder cannot be empty.";
+            return "ERROR: (100) Space cannot be empty.";
         }
 
         if (string.IsNullOrWhiteSpace(documentId))
@@ -50,7 +50,7 @@ public sealed partial class McpTools
                 }
 
                 var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(
-                    moduleFolder,
+                    space,
                     documentId,
                     typeList);
 
@@ -62,13 +62,13 @@ public sealed partial class McpTools
                 var workItems = workItemsResult.Value;
                 if (workItems is null || workItems.Length == 0)
                 {
-                    return $"No work items found in module '{moduleFolder}/{documentId}'.";
+                    return $"No work items found in module '{space}/{documentId}'.";
                 }
 
                 var result = new StringBuilder();
                 result.AppendLine($"# Work Items in Module");
                 result.AppendLine();
-                result.AppendLine($"- **Module Folder**: {moduleFolder}");
+                result.AppendLine($"- **Space**: {space}");
                 result.AppendLine($"- **Document ID**: {documentId}");
                 if (typeList != null && typeList.Count > 0)
                 {
