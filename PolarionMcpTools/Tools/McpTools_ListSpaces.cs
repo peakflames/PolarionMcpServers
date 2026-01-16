@@ -1,20 +1,21 @@
-﻿namespace PolarionMcpTools;
+namespace PolarionMcpTools;
 
 public sealed partial class McpTools
 {
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
-    [McpServerTool(Name = "get_space_names"), Description("Gets the names of all Space in the Polarion Application Lifecycle Management (ALM) Project. Space names are filtered by an internal blacklist.")]
-    public async Task<string> GetSpaceNames()
+    [McpServerTool(Name = "list_spaces"),
+     Description("Lists all Space names in the Polarion project. Space names are filtered by an internal blacklist.")]
+    public async Task<string> ListSpaces()
     {
         string? returnMsg;
-        
+
         await using (var scope = _serviceProvider.CreateAsyncScope())
         {
             var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
             var clientResult = await clientFactory.CreateClientAsync();
             if (clientResult.IsFailed)
             {
-                return clientResult.Errors.First().ToString() ?? "Internal Error (3584) unknown error when creating Polarion client";
+                return clientResult.Errors.First().ToString() ?? "ERROR: Unknown error when creating Polarion client";
             }
 
             var polarionClient = clientResult.Value;
@@ -28,7 +29,7 @@ public sealed partial class McpTools
                 var spacesResult = await polarionClient.GetSpacesAsync(blacklistPattern);
                 if (spacesResult.IsFailed)
                 {
-                    return $"ERROR: (0665) Failed to fetch Polarion spaces. Error: {spacesResult.Errors.First()}";
+                    return $"ERROR: Failed to fetch Polarion spaces. Error: {spacesResult.Errors.First()}";
                 }
 
                 var spaces = spacesResult.Value;

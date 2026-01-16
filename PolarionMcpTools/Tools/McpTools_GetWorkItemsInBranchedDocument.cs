@@ -11,18 +11,18 @@ public sealed partial class McpTools
          "whether each item is historical or current."
      )]
     public async Task<string> GetWorkItemsInBranchedDocument(
-        [Description("The module folder path (e.g., 'FCC_L4_Air8_1')")]
-        string moduleFolder,
+        [Description("The Polarion space name (e.g., 'FCC_L4_Air8_1').")]
+        string space,
 
-        [Description("The document ID within the module folder")]
+        [Description("The document ID within the space.")]
         string documentId,
 
-        [Description("The revision number to query the document at")]
+        [Description("The revision number to query the document at.")]
         string revision)
     {
-        if (string.IsNullOrWhiteSpace(moduleFolder))
+        if (string.IsNullOrWhiteSpace(space))
         {
-            return "ERROR: (100) Module folder cannot be empty.";
+            return "ERROR: (100) Space cannot be empty.";
         }
 
         if (string.IsNullOrWhiteSpace(documentId))
@@ -49,7 +49,7 @@ public sealed partial class McpTools
             try
             {
                 var workItemsResult = await polarionClient.GetWorkItemsByModuleRevisionAsync(
-                    moduleFolder,
+                    space,
                     documentId,
                     revision);
 
@@ -61,13 +61,13 @@ public sealed partial class McpTools
                 var workItems = workItemsResult.Value;
                 if (workItems is null || workItems.Length == 0)
                 {
-                    return $"No work items found in document '{moduleFolder}/{documentId}' at revision '{revision}'.";
+                    return $"No work items found in document '{space}/{documentId}' at revision '{revision}'.";
                 }
 
                 var result = new StringBuilder();
                 result.AppendLine($"# Work Items in Branched Document");
                 result.AppendLine();
-                result.AppendLine($"- **Module Folder**: {moduleFolder}");
+                result.AppendLine($"- **Space**: {space}");
                 result.AppendLine($"- **Document ID**: {documentId}");
                 result.AppendLine($"- **Revision**: {revision}");
                 result.AppendLine($"- **Total Work Items**: {workItems.Length}");

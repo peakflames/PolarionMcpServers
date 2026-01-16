@@ -1,44 +1,32 @@
-﻿namespace PolarionMcpTools;
+namespace PolarionMcpTools;
 
 public sealed partial class McpTools
 {
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
-    [McpServerTool
-            (Name = "search_workitems_in_document"),
-            Description(
-                 "Search a Polarion Document for Requirements, Test Cases, and Test Procedures whose text contains key words and phrases. " +
-                 "Tool returns a Markdown document of the matching WorkItems."
-     )]
-    public async Task<string> SearchWorkitemsInDocument(
-        
-            [Description("Name of Polarion document")]
-            string documentName,
-
-            [Description("Quoted Keyphrases using Lucene boolean syntax to search. e.g. (\"proximity\" OR \"Protective Earth\") AND \"Charge\")")]
-            string textSearchTerms,
-
-            [Description("Search only on the specified document revision. To use latest, set to -1")]
-            string documentRevision
-        )
+    [McpServerTool(Name = "search_in_document"),
+     Description("Searches a Polarion Document for Requirements, Test Cases, and Test Procedures whose text contains keywords and phrases. Returns a Markdown document of matching WorkItems.")]
+    public async Task<string> SearchInDocument(
+        [Description("The title of the Polarion document.")] string documentTitle,
+        [Description("Search query using Lucene boolean syntax (e.g., '(\"proximity\" OR \"Protective Earth\") AND \"Charge\"').")] string searchQuery,
+        [Description("Document revision. Use '-1' for latest revision.")] string revision = "-1")
     {
         string? returnMsg;
-        
-        
-        if (string.IsNullOrWhiteSpace(documentName))
+
+        if (string.IsNullOrWhiteSpace(documentTitle))
         {
-            returnMsg = $"ERROR: (100) No document name was provided.";
+            returnMsg = $"ERROR: (100) No document title was provided.";
             return returnMsg;
         }
 
-        if (string.IsNullOrWhiteSpace(textSearchTerms))
+        if (string.IsNullOrWhiteSpace(searchQuery))
         {
-            returnMsg = $"ERROR: (101) No textSearchTerms were provided.";
+            returnMsg = $"ERROR: (101) No search query was provided.";
             return returnMsg;
         }
 
-        // ensure that the textSearchTerms string has '\' escaped quotes
+        // ensure that the searchQuery string has '\' escaped quotes
         //
-        textSearchTerms = textSearchTerms.Replace("\"", "\\\"");
+        var escapedSearchQuery = searchQuery.Replace("\"", "\\\"");
 
         await using (var scope = _serviceProvider.CreateAsyncScope())
         {
@@ -51,8 +39,8 @@ public sealed partial class McpTools
 
             var polarionClient = clientResult.Value;
 
-            var moduleTitle = documentName;
-            var descriptionQuery = $"description:({textSearchTerms.Trim()})";
+            var moduleTitle = documentTitle;
+            var descriptionQuery = $"description:({escapedSearchQuery.Trim()})";
             var moduleFilter = $"document.title:\"{moduleTitle}\" AND {descriptionQuery}";
             var workItemFields = new List<string>()
             {
@@ -67,12 +55,12 @@ public sealed partial class McpTools
 
             var query = $"{moduleFilter}";
 
-            // if documentRevision is -1, call SearchWorkitem otherwise SearchWorkitemInBaseline
+            // if revision is -1, call SearchWorkitem otherwise SearchWorkitemInBaseline
             //
-            var workItemResult = documentRevision == "-1" || string.IsNullOrEmpty(documentRevision)
+            var targetRevision = revision == "-1" ? null : revision;
+            var workItemResult = targetRevision is null
                                     ? await polarionClient.SearchWorkitemAsync(query, "outlineNumber", workItemFields)
-                                    : await polarionClient.SearchWorkitemInBaselineAsync(documentRevision, query, "outlineNumber", workItemFields);
-
+                                    : await polarionClient.SearchWorkitemInBaselineAsync(targetRevision, query, "outlineNumber", workItemFields);
 
             if (workItemResult.IsFailed)
             {
@@ -85,11 +73,10 @@ public sealed partial class McpTools
                 return $"ERROR: (1045) No Polarion work items were found for Document '{moduleTitle}'.";
             }
 
-
             var combinedWorkItems = new StringBuilder();
 
-            var documentRevisionNumber = documentRevision == "-1" ? "Latest" : documentRevision;
-            combinedWorkItems.AppendLine($"# Search Results for Polarion Work Items (Document=\"{documentName}\", searchTerms=\"{textSearchTerms}\", documentRevision=\"{documentRevisionNumber}\")");
+            var documentRevisionNumber = targetRevision ?? "Latest";
+            combinedWorkItems.AppendLine($"# Search Results for Polarion Work Items (Document=\"{documentTitle}\", searchQuery=\"{searchQuery}\", revision=\"{documentRevisionNumber}\")");
             combinedWorkItems.AppendLine("");
             combinedWorkItems.AppendLine($"Found {workItems.Length} Work Items.");
             combinedWorkItems.AppendLine("");
@@ -108,7 +95,6 @@ public sealed partial class McpTools
 
                 var workItemMarkdownString = "";
 
-
                 workItemMarkdownString = polarionClient.ConvertWorkItemToMarkdown(workItem.id, workItem, null, true);
                 combinedWorkItems.AppendLine($"## Work Item: {workItem.id}");
                 combinedWorkItems.Append(workItemMarkdownString);
@@ -116,7 +102,6 @@ public sealed partial class McpTools
             }
 
             return combinedWorkItems.ToString();
-
         }
     }
 }
