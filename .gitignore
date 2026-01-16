@@ -487,3 +487,4 @@ $RECYCLE.BIN/
 dist/
 tmp/
 .polarion-mcp.pid
+.claude/settings.local.json
