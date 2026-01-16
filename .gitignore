@@ -486,3 +486,4 @@ $RECYCLE.BIN/
 # Project specific
 dist/
 tmp/
+.polarion-mcp.pid

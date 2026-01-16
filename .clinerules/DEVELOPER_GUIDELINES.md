@@ -8,6 +8,94 @@ This document outlines the essential rules and conventions for the PolarionMcpSe
 - **PolarionMcpServer**: Console application with stdio transport
 - **PolarionRemoteMcpServer**: Web application with HTTP transport
 
+## Build and Test
+
+Use the Python build automation script for all build and run operations:
+
+```bash
+python build.py build    # Build solution (auto-stops running app)
+python build.py start    # Build and start in background (port 5090)
+python build.py stop     # Stop background application
+python build.py status   # Check if application is running
+python build.py run      # Run in foreground (blocks terminal)
+```
+
+### MCP Commands (Model Context Protocol)
+```bash
+python build.py mcp ping                              # Check MCP server connectivity
+python build.py mcp info                              # Show MCP server information
+python build.py mcp tools                             # List available MCP tools
+python build.py mcp call <tool> '{"arg": "value"}'    # Call an MCP tool with JSON args
+```
+**Examples:**
+```bash
+python build.py mcp call get_space_names
+python build.py mcp call get_workitems_in_module '{"moduleFolder": "L4_fcs", "documentId": "MyDoc"}'
+python build.py mcp call get_documents '{"titleContains": ""}'
+```
+**Note:** Use double quotes for JSON argument keys/values on Windows. If tools error with authentication failures, check that credentials are configured in `PolarionRemoteMcpServer/appsettings.json`.
+
+### Log Commands (for debugging)
+```bash
+python build.py log                      # Show last 50 lines
+python build.py log <pattern>            # Search for regex pattern
+python build.py log --tail <n>           # Show last n lines
+python build.py log --level error        # Filter by level (error/warn/info/debug)
+python build.py log --tail 100 --level error  # Combine options
+```
+
+### URLs (when running)
+- http://localhost:5090 - Landing page
+- http://localhost:5090/mcp - MCP endpoint (for AI tool integration)
+
+### Key Behaviors
+- **`build`** auto-stops any running instance (prevents Windows file lock errors)
+- **`start`** auto-builds before launching (always runs latest code)
+- **`start`** runs in background, freeing terminal for mcp/verification commands
+- **`stop`** gracefully terminates, then force-kills if needed
+
+### Prerequisites
+```bash
+pip install psutil fastmcp
+```
+
+## CRITICAL: Verification Before Commit Rule
+
+**NEVER commit code changes before the user has verified them!**
+
+A successful build (compile) does NOT equal working code. The workflow MUST be:
+
+1. **Implement** - Make the code changes
+2. **Build** - Run `python build.py build` to verify compilation
+3. **Start App** - Run `python build.py start` to launch in background
+4. **Verify** - Use MCP tools or manual testing to confirm functionality
+5. **Commit** - ONLY after verification passed
+
+**Why this matters:**
+- Compiled code ≠ correct behavior
+- API changes need endpoint verification
+- Business logic needs functional testing
+- Committing untested code pollutes git history with potential bugs
+
+**Verification Workflow Example:**
+```bash
+python build.py start                           # Build & start in background
+python build.py mcp ping                        # Verify MCP connectivity
+python build.py mcp tools                       # Verify tools are registered
+python build.py mcp call get_space_names       # Test a tool
+python build.py log --level error               # Check for errors
+# ... additional verification ...
+git add <specific files> && git commit -m "feat: ..."  # Commit after verification
+python build.py stop                            # Stop when done (optional)
+```
+
+## Git Workflow
+
+- Prefer `--no-ff` when merging for any branches to preserve commit history
+- Prefer to ask user for approval before pushing to origin unless explicitly requested
+- Always explicitly exclude `appsettings.json` from staging (see Security Rule below)
+- Use explicit file paths in `git add` commands rather than wildcards
+
 ## Adding New Configuration
 
 1. **Update appsettings.json**:
@@ -148,10 +236,16 @@ When working on this project as an AI assistant:
    - Pay attention to async/await patterns and Result<T> return types
    - Use the `[RequiresUnreferencedCode]` attribute for methods that call Polarion APIs
 
+4. **Use build.py for all operations**:
+   - PREFER to use `build.py` for nearly all build, test, and verification activities
+   - Always verify changes using MCP tools before considering work complete
+
 ## C# Coding Conventions
 
 - Use `var` for all variables
 - Use curly braces for all blocks
+- Prefer Global Using Statements over Local Using Statements
+- Prefer FluentResults over null handling or Exceptions for error handling
 
 ## MCP Tool Attribute Syntax
 
