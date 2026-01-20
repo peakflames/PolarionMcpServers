@@ -4,11 +4,21 @@ public sealed partial class McpTools
 {
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
     [McpServerTool(Name = "search_in_document"),
-     Description("Searches a Polarion Document for Requirements, Test Cases, and Test Procedures whose text contains keywords and phrases. Returns a Markdown document of matching WorkItems.")]
+     Description("Searches a Polarion Document for work items matching search terms. " +
+                 "Returns matching Requirements, Test Cases, and Test Procedures as Markdown. " +
+                 "The search is performed across all indexed text fields (title, description, etc.).")]
     public async Task<string> SearchInDocument(
-        [Description("The title of the Polarion document.")] string documentTitle,
-        [Description("Search query using Lucene boolean syntax (e.g., '(\"proximity\" OR \"Protective Earth\") AND \"Charge\"').")] string searchQuery,
-        [Description("Document revision. Use '-1' for latest revision.")] string revision = "-1")
+        [Description("The exact title of the Polarion document to search within.")]
+        string documentTitle,
+
+        [Description("Search terms using Lucene syntax. " +
+                     "Examples: 'timeout' (single term), 'rigging timeout' (either term), " +
+                     "'rigging AND timeout' (both terms required), '\"rigging timeout\"' (exact phrase). " +
+                     "Do NOT prefix with field names like 'description:' - just provide the search terms.")]
+        string searchQuery,
+
+        [Description("Document revision number. Use '-1' for latest revision.")]
+        string revision = "-1")
     {
         string? returnMsg;
 
@@ -24,9 +34,9 @@ public sealed partial class McpTools
             return returnMsg;
         }
 
-        // ensure that the searchQuery string has '\' escaped quotes
-        //
-        var escapedSearchQuery = searchQuery.Replace("\"", "\\\"");
+        // Note: Do NOT escape quotes in searchQuery - they are meaningful Lucene syntax
+        // for phrase searches (e.g., "rigging timeout" searches for that exact phrase)
+        var escapedSearchQuery = searchQuery;
 
         await using (var scope = _serviceProvider.CreateAsyncScope())
         {
@@ -40,8 +50,9 @@ public sealed partial class McpTools
             var polarionClient = clientResult.Value;
 
             var moduleTitle = documentTitle;
-            var descriptionQuery = $"description:({escapedSearchQuery.Trim()})";
-            var moduleFilter = $"document.title:\"{moduleTitle}\" AND {descriptionQuery}";
+            // Pass search query directly - user provides Lucene syntax
+            // Example: "rigging timeout" for phrase, rigging AND timeout for both terms
+            var moduleFilter = $"document.title:\"{moduleTitle}\" AND ({escapedSearchQuery.Trim()})";
             var workItemFields = new List<string>()
             {
                 "id",
