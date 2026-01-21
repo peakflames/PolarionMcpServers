@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace PolarionMcpTools;
 
 public sealed partial class McpTools
@@ -6,37 +8,36 @@ public sealed partial class McpTools
     [McpServerTool(Name = "search_in_document"),
      Description("Searches a Polarion Document for work items matching search terms. " +
                  "Returns matching Requirements, Test Cases, and Test Procedures as Markdown. " +
-                 "The search is performed across all indexed text fields (title, description, etc.).")]
+                 "The search is performed across title and description fields.")]
     public async Task<string> SearchInDocument(
-        [Description("The exact title of the Polarion document to search within.")]
-        string documentTitle,
+        [Description("The Polarion space name (e.g., 'FCC_L4_Air8_1').")]
+        string space,
 
-        [Description("Search terms using Lucene syntax. " +
-                     "Examples: 'timeout' (single term), 'rigging timeout' (either term), " +
-                     "'rigging AND timeout' (both terms required), '\"rigging timeout\"' (exact phrase). " +
-                     "Do NOT prefix with field names like 'description:' - just provide the search terms.")]
+        [Description("The document ID within the space (e.g., 'FCC_L4_Requirements').")]
+        string documentId,
+
+        [Description("Search terms. " +
+                     "Examples: 'timeout' (single term), 'rigging timeout' (either term - OR logic), " +
+                     "'rigging AND timeout' (both terms required), '\"rigging timeout\"' (exact phrase).")]
         string searchQuery,
 
         [Description("Document revision number. Use '-1' for latest revision.")]
         string revision = "-1")
     {
-        string? returnMsg;
-
-        if (string.IsNullOrWhiteSpace(documentTitle))
+        if (string.IsNullOrWhiteSpace(space))
         {
-            returnMsg = $"ERROR: (100) No document title was provided.";
-            return returnMsg;
+            return "ERROR: (100) Space cannot be empty.";
+        }
+
+        if (string.IsNullOrWhiteSpace(documentId))
+        {
+            return "ERROR: (101) Document ID cannot be empty.";
         }
 
         if (string.IsNullOrWhiteSpace(searchQuery))
         {
-            returnMsg = $"ERROR: (101) No search query was provided.";
-            return returnMsg;
+            return "ERROR: (102) No search query was provided.";
         }
-
-        // Note: Do NOT escape quotes in searchQuery - they are meaningful Lucene syntax
-        // for phrase searches (e.g., "rigging timeout" searches for that exact phrase)
-        var escapedSearchQuery = searchQuery;
 
         await using (var scope = _serviceProvider.CreateAsyncScope())
         {
@@ -49,70 +50,165 @@ public sealed partial class McpTools
 
             var polarionClient = clientResult.Value;
 
-            var moduleTitle = documentTitle;
-            // Pass search query directly - user provides Lucene syntax
-            // Example: "rigging timeout" for phrase, rigging AND timeout for both terms
-            var moduleFilter = $"document.title:\"{moduleTitle}\" AND ({escapedSearchQuery.Trim()})";
-            var workItemFields = new List<string>()
+            try
             {
-                "id",
-                "outlineNumber",
-                "type",
-                "description",
-                "status",
-                "title",
-                "updated"
-            };
+                // Get all work items from the module using SQL relationship query
+                var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(
+                    space,
+                    documentId,
+                    null); // Get all types
 
-            var query = $"{moduleFilter}";
-
-            // if revision is -1, call SearchWorkitem otherwise SearchWorkitemInBaseline
-            //
-            var targetRevision = revision == "-1" ? null : revision;
-            var workItemResult = targetRevision is null
-                                    ? await polarionClient.SearchWorkitemAsync(query, "outlineNumber", workItemFields)
-                                    : await polarionClient.SearchWorkitemInBaselineAsync(targetRevision, query, "outlineNumber", workItemFields);
-
-            if (workItemResult.IsFailed)
-            {
-                return $"ERROR: (1044) Failed to fetch Polarion work items. Error: {workItemResult.Errors.First()}. Note: The resulting transformed Lucene query was: '{query}'";
-            }
-
-            var workItems = workItemResult.Value;
-            if (workItems is null || workItems.Length == 0)
-            {
-                return $"ERROR: (1045) No Polarion work items were found for Document '{moduleTitle}'.";
-            }
-
-            var combinedWorkItems = new StringBuilder();
-
-            var documentRevisionNumber = targetRevision ?? "Latest";
-            combinedWorkItems.AppendLine($"# Search Results for Polarion Work Items (Document=\"{documentTitle}\", searchQuery=\"{searchQuery}\", revision=\"{documentRevisionNumber}\")");
-            combinedWorkItems.AppendLine("");
-            combinedWorkItems.AppendLine($"Found {workItems.Length} Work Items.");
-            combinedWorkItems.AppendLine("");
-
-            foreach (var workItem in workItems)
-            {
-                if (workItem is null)
+                if (workItemsResult.IsFailed)
                 {
-                    continue;
+                    return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}'. Error: {workItemsResult.Errors.First().Message}";
                 }
 
-                if (workItem.id is null)
+                var allWorkItems = workItemsResult.Value;
+                if (allWorkItems is null || allWorkItems.Length == 0)
                 {
-                    continue;
+                    return $"No work items found in module '{space}/{documentId}'.";
                 }
 
-                var workItemMarkdownString = "";
+                // Parse search query and filter work items in memory
+                var searchMatcher = ParseSearchQuery(searchQuery);
+                var matchingWorkItems = allWorkItems
+                    .Where(wi => wi != null && MatchesSearch(wi, searchMatcher))
+                    .ToList();
 
-                workItemMarkdownString = polarionClient.ConvertWorkItemToMarkdown(workItem.id, workItem, null, true);
-                combinedWorkItems.AppendLine($"## Work Item: {workItem.id}");
-                combinedWorkItems.Append(workItemMarkdownString);
-                combinedWorkItems.AppendLine("");
+                if (matchingWorkItems.Count == 0)
+                {
+                    return $"No work items matching '{searchQuery}' found in document '{space}/{documentId}'. Total work items in document: {allWorkItems.Length}.";
+                }
+
+                var result = new StringBuilder();
+                var documentRevisionNumber = revision == "-1" ? "Latest" : revision;
+                result.AppendLine($"# Search Results for Polarion Work Items");
+                result.AppendLine();
+                result.AppendLine($"- **Space**: {space}");
+                result.AppendLine($"- **Document ID**: {documentId}");
+                result.AppendLine($"- **Search Query**: {searchQuery}");
+                result.AppendLine($"- **Revision**: {documentRevisionNumber}");
+                result.AppendLine($"- **Matching Work Items**: {matchingWorkItems.Count}");
+                result.AppendLine($"- **Total Work Items in Document**: {allWorkItems.Length}");
+                result.AppendLine();
+
+                foreach (var workItem in matchingWorkItems)
+                {
+                    if (workItem?.id is null)
+                    {
+                        continue;
+                    }
+
+                    var lastUpdated = workItem.updatedSpecified ? workItem.updated.ToString("yyyy-MM-dd HH:mm:ss") : "N/A";
+
+                    result.AppendLine($"## WorkItem (id={workItem.id}, type={workItem.type?.id ?? "N/A"}, lastUpdated={lastUpdated})");
+                    result.AppendLine();
+                    result.AppendLine($"- **Outline Number**: {workItem.outlineNumber ?? "N/A"}");
+                    result.AppendLine($"- **Title**: {workItem.title ?? "N/A"}");
+                    result.AppendLine($"- **Status**: {workItem.status?.id ?? "N/A"}");
+                    result.AppendLine();
+
+                    if (!string.IsNullOrWhiteSpace(workItem.description?.content))
+                    {
+                        var markdown = polarionClient.ConvertWorkItemToMarkdown(workItem.id, workItem);
+                        result.AppendLine("### Description");
+                        result.AppendLine();
+                        result.AppendLine(markdown);
+                        result.AppendLine();
+                    }
+                }
+
+                return result.ToString();
             }
-
-            return combinedWorkItems.ToString();
+            catch (Exception ex)
+            {
+                return $"ERROR: Failed due to exception '{ex.Message}'";
+            }
         }
+    }
+
+    /// <summary>
+    /// Parses a search query into a matcher function that supports:
+    /// - Single terms: "timeout" matches if term is found
+    /// - Multiple terms (OR): "rigging timeout" matches if ANY term is found
+    /// - AND operator: "rigging AND timeout" matches if ALL terms are found
+    /// - Exact phrases: "\"rigging timeout\"" matches the exact phrase
+    /// </summary>
+    private static SearchMatcher ParseSearchQuery(string query)
+    {
+        var trimmedQuery = query.Trim();
+
+        // Check for exact phrase (wrapped in quotes)
+        if (trimmedQuery.StartsWith('"') && trimmedQuery.EndsWith('"') && trimmedQuery.Length > 2)
+        {
+            var phrase = trimmedQuery[1..^1]; // Remove surrounding quotes
+            return new SearchMatcher
+            {
+                MatchType = SearchMatchType.ExactPhrase,
+                Terms = [phrase]
+            };
+        }
+
+        // Check for AND operator
+        if (trimmedQuery.Contains(" AND ", StringComparison.OrdinalIgnoreCase))
+        {
+            var terms = trimmedQuery
+                .Split(new[] { " AND " }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(t => t.Trim())
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .ToList();
+
+            return new SearchMatcher
+            {
+                MatchType = SearchMatchType.AllTerms,
+                Terms = terms
+            };
+        }
+
+        // Default: OR logic (any term matches)
+        var orTerms = trimmedQuery
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(t => t.Trim())
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .ToList();
+
+        return new SearchMatcher
+        {
+            MatchType = SearchMatchType.AnyTerm,
+            Terms = orTerms
+        };
+    }
+
+    /// <summary>
+    /// Checks if a work item matches the search criteria.
+    /// Searches in title and description fields.
+    /// </summary>
+    private static bool MatchesSearch(WorkItem workItem, SearchMatcher matcher)
+    {
+        // Combine searchable text from title and description
+        var title = workItem.title ?? "";
+        var description = workItem.description?.content ?? "";
+        var searchableText = $"{title} {description}";
+
+        return matcher.MatchType switch
+        {
+            SearchMatchType.ExactPhrase => searchableText.Contains(matcher.Terms[0], StringComparison.OrdinalIgnoreCase),
+            SearchMatchType.AllTerms => matcher.Terms.All(term => searchableText.Contains(term, StringComparison.OrdinalIgnoreCase)),
+            SearchMatchType.AnyTerm => matcher.Terms.Any(term => searchableText.Contains(term, StringComparison.OrdinalIgnoreCase)),
+            _ => false
+        };
+    }
+
+    private enum SearchMatchType
+    {
+        AnyTerm,      // OR logic: match if any term is found
+        AllTerms,     // AND logic: match if all terms are found
+        ExactPhrase   // Exact phrase match
+    }
+
+    private class SearchMatcher
+    {
+        public SearchMatchType MatchType { get; set; }
+        public List<string> Terms { get; set; } = [];
     }
 }
