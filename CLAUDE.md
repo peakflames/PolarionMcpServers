@@ -176,7 +176,34 @@ python build.py stop                            # Stop when done (optional)
    - The project ID is extracted from the route parameter
    - If no project ID is provided, the default project is used
 
-3. **API Documentation Reference**:
+3. **Polarion Lucene Query Syntax**:
+
+   When building Lucene queries for `SearchWorkitemAsync` or `SearchWorkitemInBaselineAsync`:
+
+   - **Valid field names**: `document.title`, `document.id`, `type`, `status`, `title`, `id`, `outlineNumber`
+   - **Do NOT use**: `description:(...)` or `description.content:(...)` - these cause query parse failures
+   - **For text search**: Pass search terms directly without a field qualifier - Polarion searches all indexed text fields by default
+
+   **Working query patterns:**
+   ```csharp
+   // Filter by document and search text (searches all text fields)
+   var query = $"document.title:\"{docTitle}\" AND ({searchTerms})";
+
+   // Filter by document and type
+   var query = $"(type:testCase OR type:requirement) AND document.title:\"{docTitle}\"";
+
+   // Filter by document ID
+   var query = $"document.id:\"{docId}\" AND ({searchTerms})";
+   ```
+
+   **Query syntax rules:**
+   - Wrap field values containing spaces in double quotes: `document.title:"My Document"`
+   - Use AND/OR for boolean logic: `rigging AND timeout`
+   - Use quotes for phrase search: `"rigging timeout"` (exact phrase)
+   - Parentheses for grouping: `(type:testCase OR type:testStep) AND document.title:"..."`
+   - Leading wildcards (`*term`) are NOT supported and will cause parse errors
+
+4. **API Documentation Reference**:
    - Complete API documentation is available at: https://github.com/peakflames/PolarionApiClient/blob/main/api.md
    - **For Cline/AI Assistants**: When you need detailed information about available Polarion client methods, their signatures, parameters, or usage, use your web_fetch or similar tools to retrieve the API documentation from the above URL
    - The documentation includes all available methods with complete signatures, parameter descriptions, return types, and usage examples

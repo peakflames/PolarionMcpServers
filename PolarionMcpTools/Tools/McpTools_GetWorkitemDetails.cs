@@ -254,6 +254,7 @@ public sealed partial class McpTools
         return sb.ToString();
     }
 
+    [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
     private async Task<List<(int Level, string Id, string Role, string LinkedFrom)>> GetTraceabilityChainAsync(
         Polarion.IPolarionClient polarionClient,
         string startId,
