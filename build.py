@@ -6,6 +6,11 @@ Supports: build, run, start, stop, status, mcp commands
 
 import sys
 import os
+
+# Fix Unicode output on Windows
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 import platform
 import subprocess
 import signal
