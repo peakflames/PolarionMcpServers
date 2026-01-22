@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.7.0
+
+### Breaking Changes
+
+- `get_document_outline`: Replace `documentTitle` parameter with `space` and `documentId` parameters
+
+### Changed
+
+- Upgrade Polarion package from 0.3.3 to 0.3.4
+
+### Fixed
+
+- Fix revision URI extraction to handle percent-encoded format (e.g., `...%611906`) in addition to query format (`?revision=XXXXX`)
+- Fix Lucene query handling that broke phrase searches due to incorrect quote escaping
+
 ## 0.6.0
 
 Major API reorganization for improved LLM workflow support. Reduces tool count from 16 to 11 through consolidation and standardizes parameter naming across all tools.
