@@ -116,7 +116,9 @@ public sealed partial class McpTools
 
     /// <summary>
     /// Extracts the revision ID from a Polarion module URI.
-    /// URI format: subterra:data-service:objects:/default/...?revision=XXXXX
+    /// URI formats supported:
+    /// - subterra:data-service:objects:/default/...%XXXXX (percent format)
+    /// - subterra:data-service:objects:/default/...?revision=XXXXX (query format)
     /// </summary>
     private static string ExtractRevisionIdFromUri(string? uri)
     {
@@ -125,6 +127,14 @@ public sealed partial class McpTools
             return "N/A";
         }
 
+        // Try percent format first (e.g., ...%611906)
+        var percentIndex = uri.LastIndexOf('%');
+        if (percentIndex >= 0 && percentIndex < uri.Length - 1)
+        {
+            return uri[(percentIndex + 1)..];
+        }
+
+        // Fall back to query format (e.g., ...?revision=611906)
         var revisionIndex = uri.IndexOf("?revision=", StringComparison.OrdinalIgnoreCase);
         if (revisionIndex >= 0)
         {
