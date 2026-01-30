@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0
+
+### Changed
+
+- Upgrade ModelContextProtocol SDK from 0.4.0-preview.2 to 0.7.0-preview.1
+  - Enables Streamable HTTP transport (replaces legacy HTTP+SSE)
+  - Support for MCP protocol version 2025-11-25
+
 ## 0.7.0
 
 ### Breaking Changes
