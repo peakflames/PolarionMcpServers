@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="Polarion" Version="0.3.4" />
-    <PackageReference Include="ModelContextProtocol" Version="0.4.0-preview.2" />
+    <PackageReference Include="ModelContextProtocol" Version="0.7.0-preview.1" />
     <PackageReference Include="ReverseMarkdown" Version="4.6.0" />
     <PackageReference Include="Microsoft.AspNetCore.Routing.Abstractions" Version="2.3.0" />
     <PackageReference Include="Serilog.Extensions.Hosting" Version="9.0.0" />
