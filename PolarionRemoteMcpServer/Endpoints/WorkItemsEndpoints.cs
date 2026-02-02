@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using FluentResults;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using PolarionMcpTools;
 using PolarionRemoteMcpServer.Authentication;
@@ -123,10 +124,20 @@ public static class WorkItemsEndpoints
         string projectId,
         string workitemId,
         RestApiProjectResolver projectResolver,
-        int limit = 10)
+        [FromQuery(Name = "page[size]")] int pageSize = 100)
     {
-        Log.Debug("REST API: GetWorkItemRevisions called for project={ProjectId}, workitemId={WorkitemId}, limit={Limit}",
-            projectId, workitemId, limit);
+        // Clamp pageSize: min 1, max 500
+        if (pageSize < 1)
+        {
+            pageSize = 1;
+        }
+        else if (pageSize > 500)
+        {
+            pageSize = 500;
+        }
+
+        Log.Debug("REST API: GetWorkItemRevisions called for project={ProjectId}, workitemId={WorkitemId}, pageSize={PageSize}",
+            projectId, workitemId, pageSize);
 
         if (string.IsNullOrWhiteSpace(workitemId))
         {
@@ -153,7 +164,7 @@ public static class WorkItemsEndpoints
 
         try
         {
-            var revisionsResult = await polarionClient.GetWorkItemRevisionsByIdAsync(workitemId, limit);
+            var revisionsResult = await polarionClient.GetWorkItemRevisionsByIdAsync(workitemId, pageSize);
             if (revisionsResult.IsFailed)
             {
                 var errorMsg = revisionsResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";
@@ -201,7 +212,7 @@ public static class WorkItemsEndpoints
                 },
                 Meta = new JsonApiMeta
                 {
-                    TotalCount = resources.Count
+                    Count = resources.Count
                 }
             };
 

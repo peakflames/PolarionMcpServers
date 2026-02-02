@@ -59,9 +59,12 @@ public class JsonApiLinks
 /// </summary>
 public class JsonApiMeta
 {
-    [JsonPropertyName("totalCount")]
+    /// <summary>
+    /// The number of items returned in this response.
+    /// </summary>
+    [JsonPropertyName("count")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public int? TotalCount { get; set; }
+    public int? Count { get; set; }
 
     [JsonExtensionData]
     public Dictionary<string, object>? AdditionalProperties { get; set; }
