@@ -130,7 +130,8 @@ public class Program
 
             // Map MCP endpoints
             //
-            app.MapMcp("{projectId}");
+            app.MapMcp("{projectId}");        // /{projectId}, /{projectId}/sse
+            app.MapMcp("{projectId}/mcp");    // /{projectId}/mcp (streamable HTTP)
 
             app.Run();
             return 0;
