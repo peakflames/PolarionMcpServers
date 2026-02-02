@@ -10,9 +10,11 @@ namespace PolarionMcpTools;
 [JsonSerializable(typeof(List<PolarionProjectConfig>))]
 [JsonSerializable(typeof(PolarionProjectConfig))]
 [JsonSerializable(typeof(PolarionClientConfiguration))]
-[JsonSerializable(typeof(List<ArtifactCustomFieldConfig>))] 
-[JsonSerializable(typeof(ArtifactCustomFieldConfig))]     
+[JsonSerializable(typeof(List<ArtifactCustomFieldConfig>))]
+[JsonSerializable(typeof(ArtifactCustomFieldConfig))]
 public partial class PolarionConfigJsonContext : JsonSerializerContext
 {
 }
+
+// Note: JSON:API types for REST endpoints are registered in PolarionRemoteMcpServer.PolarionRestApiJsonContext
 

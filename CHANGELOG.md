@@ -2,7 +2,27 @@
 
 ## 0.11.0
 
-TBD
+### Added
+
+- Add API key authentication for REST API endpoints
+  - REST API endpoints now require `X-API-Key` header for authentication
+  - Configure API consumers in `appsettings.json` under `ApiConsumers` section
+  - Scope-based authorization with `polarion:read` scope (additional scopes for future use)
+  - MCP endpoints, health checks, and API documentation remain unauthenticated
+  - OpenAPI/Scalar UI includes authentication support for interactive testing
+- Add REST API endpoints compatible with Polarion REST API format (JSON:API)
+  - `GET /polarion/rest/v1/projects/{projectId}/workitems/{workitemId}` - Get work item details
+  - `GET /polarion/rest/v1/projects/{projectId}/workitems/{workitemId}/revisions` - Get work item revisions
+  - `GET /polarion/rest/v1/projects/{projectId}/spaces` - List spaces
+  - `GET /polarion/rest/v1/projects/{projectId}/spaces/{spaceId}/documents` - List documents in space
+  - `GET /polarion/rest/v1/projects/{projectId}/spaces/{spaceId}/documents/{documentId}` - Get document details
+  - `GET /polarion/rest/v1/projects/{projectId}/spaces/{spaceId}/documents/{documentId}/workitems` - Get work items in document
+  - `GET /polarion/rest/v1/projects/{projectId}/spaces/{spaceId}/documents/{documentId}/revisions` - Get document revisions
+  - Note: REST API uses `SessionConfig.ProjectId` for project matching (not `ProjectUrlAlias`)
+- Add Scalar API documentation UI at `/scalar/v1` for interactive API testing
+- Add OpenAPI specification at `/openapi/v1.json`
+- Add health check endpoint at `/api/health`
+- Add version endpoint at `/api/version`
 
 ## 0.10.0
 

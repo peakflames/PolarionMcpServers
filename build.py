@@ -78,6 +78,7 @@ def check_status() -> None:
         print(f"✓ Application is running (PID: {pid})")
         print(f"  URL: http://localhost:{DEV_PORT}")
         print(f"  MCP: http://localhost:{DEV_PORT}/mcp")
+        print(f"  API Docs: http://localhost:{DEV_PORT}/scalar/v1")
         print(f"  Log file: {LOG_FILE}")
     else:
         print("✗ Application is not running")
@@ -134,6 +135,7 @@ def start_background() -> None:
     if is_process_running(process.pid):
         print(f"✓ Application is running at http://localhost:{DEV_PORT}")
         print(f"  MCP endpoint: http://localhost:{DEV_PORT}/mcp")
+        print(f"  API Docs: http://localhost:{DEV_PORT}/scalar/v1")
     else:
         print("✗ Application failed to start. Check log file for details:")
         print(f"  python build.py log --tail 50")
@@ -466,6 +468,7 @@ def print_usage() -> None:
     print("URLs (when running):")
     print(f"  http://localhost:{DEV_PORT}              - Landing page")
     print(f"  http://localhost:{DEV_PORT}/mcp          - MCP endpoint")
+    print(f"  http://localhost:{DEV_PORT}/scalar/v1    - API documentation (Scalar)")
     print("")
     print("Examples:")
     print("  python build.py start                       # Build and start server")
