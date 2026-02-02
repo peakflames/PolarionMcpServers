@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using PolarionRemoteMcpServer.Authentication;
 using PolarionRemoteMcpServer.Endpoints;
 using PolarionRemoteMcpServer.Models.JsonApi;
 
@@ -57,6 +58,12 @@ namespace PolarionRemoteMcpServer;
 // Common nullable types used in query parameters
 [JsonSerializable(typeof(int?))]
 [JsonSerializable(typeof(int))]
+
+// Authentication configuration types
+[JsonSerializable(typeof(ApiConsumerConfig))]
+[JsonSerializable(typeof(ApiConsumersConfig))]
+[JsonSerializable(typeof(Dictionary<string, ApiConsumerConfig>))]
+[JsonSerializable(typeof(List<string>))]
 public partial class PolarionRestApiJsonContext : JsonSerializerContext
 {
 }

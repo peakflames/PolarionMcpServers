@@ -4,6 +4,7 @@ using FluentResults;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using PolarionMcpTools;
+using PolarionRemoteMcpServer.Authentication;
 using PolarionRemoteMcpServer.Models.JsonApi;
 using PolarionRemoteMcpServer.Services;
 using Serilog;
@@ -23,8 +24,10 @@ public static class WorkItemsEndpoints
     {
         var group = app.MapGroup("/polarion/rest/v1/projects/{projectId}");
 
-        group.MapGet("/workitems/{workitemId}", GetWorkItem);
-        group.MapGet("/workitems/{workitemId}/revisions", GetWorkItemRevisions);
+        group.MapGet("/workitems/{workitemId}", GetWorkItem)
+            .RequireAuthorization(ApiScopes.PolarionRead);
+        group.MapGet("/workitems/{workitemId}/revisions", GetWorkItemRevisions)
+            .RequireAuthorization(ApiScopes.PolarionRead);
     }
 
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]

@@ -49,6 +49,17 @@ MCP Tools are available for Polarion work items, including:
        }
      },
      "AllowedHosts": "*",
+     "ApiConsumers": {
+       "Consumers": {
+         "my_app": {
+           "Name": "My Application",
+           "ApplicationKey": "your-secure-api-key-here",
+           "Active": true,
+           "AllowedScopes": ["polarion:read"],
+           "Description": "API consumer for my application"
+         }
+       }
+     },
      "PolarionProjects": [
           {
               "ProjectUrlAlias": "starlight", 
@@ -112,7 +123,8 @@ MCP Tools are available for Polarion work items, including:
    2. SSE Transport: `http://{{your-server-ip}}:8080/{ProjectUrlAlias}/sse`.
 2. The server also provides:
    - REST API: `http://{{your-server-ip}}:8080/polarion/rest/v1/projects/{ProjectId}/...` (uses `SessionConfig.ProjectId`)
-   - API Documentation: `http://{{your-server-ip}}:8080/scalar/v1`
+     - **Note:** REST API endpoints require API key authentication via `X-API-Key` header
+   - API Documentation: `http://{{your-server-ip}}:8080/scalar/v1` (includes authentication UI)
    - Health Check: `http://{{your-server-ip}}:8080/api/health`
 3. 📢IMPORTANT - Do NOT run with replica instances of the server as the session connection will not be shared between replicas.
 
@@ -144,6 +156,29 @@ The server uses a `PolarionProjects` array in `appsettings.json` to define one o
 | `TimeoutSeconds` | Connection timeout in seconds.                                      | No       | `60`    |
 
 *Note: It is strongly recommended to use more secure methods for storing credentials (like User Secrets, Azure Key Vault, etc.) rather than placing plain text passwords in `appsettings.json`.*
+
+### API Key Authentication (REST API Only)
+
+REST API endpoints require authentication via API key. Configure API consumers in the `ApiConsumers` section of `appsettings.json`:
+
+| Setting | Description | Required |
+| ------- | ----------- | -------- |
+| `ApiConsumers.Consumers` | Dictionary of consumer configurations keyed by consumer ID | Yes |
+| `Name` | Display name for the API consumer | Yes |
+| `ApplicationKey` | The API key used for authentication | Yes |
+| `Active` | Whether the consumer is allowed to authenticate | Yes |
+| `AllowedScopes` | List of scopes (e.g., `["polarion:read"]`) | Yes |
+| `Description` | Optional description of the consumer | No |
+
+**Available Scopes:**
+- `polarion:read` - Read access to all REST API endpoints
+
+**Usage:**
+```bash
+curl -H "X-API-Key: your-api-key" http://localhost:8080/polarion/rest/v1/projects/{projectId}/spaces
+```
+
+**Note:** MCP endpoints, health checks (`/api/health`, `/api/version`), and API documentation (`/scalar/v1`) do not require authentication.
 
 ## Configuring MCP Clients
 

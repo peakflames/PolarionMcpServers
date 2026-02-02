@@ -4,6 +4,7 @@ using FluentResults;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using PolarionMcpTools;
+using PolarionRemoteMcpServer.Authentication;
 using PolarionRemoteMcpServer.Models.JsonApi;
 using PolarionRemoteMcpServer.Services;
 using Serilog;
@@ -23,7 +24,8 @@ public static class SpacesEndpoints
     {
         var group = app.MapGroup("/polarion/rest/v1/projects/{projectId}");
 
-        group.MapGet("/spaces", GetSpaces);
+        group.MapGet("/spaces", GetSpaces)
+            .RequireAuthorization(ApiScopes.PolarionRead);
     }
 
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
