@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Text.Json; // For JsonSerializerOptions
+using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 
 // using Microsoft.Extensions.Hosting; // Not directly used for WebApplication
 // using Microsoft.Extensions.Logging; // No longer directly used here, Serilog handles it
@@ -95,6 +96,37 @@ public class Program
             //
             Log.Information("Starting PolarionMcpServer...");
             var app = builder.Build();
+
+            // SSE stream disconnection workaround for Cline/TypeScript MCP SDK (streamableHttp only)
+            // The TypeScript MCP SDK has a bug where GET requests wait in a loop that can timeout.
+            // This middleware intercepts GET requests to streamableHttp endpoints and sends a dummy response.
+            // NOTE: This only applies to streamableHttp transport (GET /{projectId}), NOT legacy SSE (GET /{projectId}/sse)
+            // See: https://github.com/cline/cline/issues/8367
+            // See: https://github.com/modelcontextprotocol/typescript-sdk/issues/1211
+            app.Use(async (context, next) =>
+            {
+                // Only intercept GET requests for streamableHttp transport (NOT /sse or /message endpoints)
+                var path = context.Request.Path.Value;
+                if (context.Request.Method == "GET" &&
+                    path != null &&
+                    !path.EndsWith("/sse") &&
+                    !path.EndsWith("/message") &&
+                    !path.Equals("/", StringComparison.Ordinal))
+                {
+                    Log.Debug("StreamableHttp workaround: Intercepting GET {Path}", context.Request.Path);
+
+                    context.Response.ContentType = "text/event-stream";
+                    context.Response.Headers.CacheControl = "no-cache";
+                    context.Response.Headers.Connection = "keep-alive";
+
+                    // Use a hardcoded JSON string to avoid reflection-based serialization issues in AOT
+                    const string fakeResponseJson = """{"id":0,"jsonrpc":"2.0","result":{}}""";
+                    await context.Response.WriteAsync($"event: message\ndata: {fakeResponseJson}\n\n");
+                    return; // Short-circuit, don't call next middleware
+                }
+
+                await next();
+            });
 
             // Map MCP endpoints
             //
