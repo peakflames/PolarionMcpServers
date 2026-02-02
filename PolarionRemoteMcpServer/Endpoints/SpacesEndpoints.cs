@@ -94,7 +94,7 @@ public static class SpacesEndpoints
                 },
                 Meta = new JsonApiMeta
                 {
-                    TotalCount = resources.Count
+                    Count = resources.Count
                 }
             };
 

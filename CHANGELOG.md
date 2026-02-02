@@ -18,6 +18,8 @@
   - `GET /polarion/rest/v1/projects/{projectId}/spaces/{spaceId}/documents/{documentId}` - Get document details
   - `GET /polarion/rest/v1/projects/{projectId}/spaces/{spaceId}/documents/{documentId}/workitems` - Get work items in document
   - `GET /polarion/rest/v1/projects/{projectId}/spaces/{spaceId}/documents/{documentId}/revisions` - Get document revisions
+  - Revision endpoints support `page[size]` query parameter (default: 100, max: 500)
+  - Response meta uses `count` for items returned (not `totalCount`)
   - Note: REST API uses `SessionConfig.ProjectId` for project matching (not `ProjectUrlAlias`)
 - Add Scalar API documentation UI at `/scalar/v1` for interactive API testing
 - Add OpenAPI specification at `/openapi/v1.json`

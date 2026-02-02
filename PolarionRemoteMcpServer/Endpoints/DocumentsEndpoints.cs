@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using FluentResults;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using PolarionMcpTools;
 using PolarionRemoteMcpServer.Authentication;
@@ -108,7 +109,7 @@ public static class DocumentsEndpoints
                 },
                 Meta = new JsonApiMeta
                 {
-                    TotalCount = resources.Count
+                    Count = resources.Count
                 }
             };
 
@@ -301,7 +302,7 @@ public static class DocumentsEndpoints
                 },
                 Meta = new JsonApiMeta
                 {
-                    TotalCount = resources.Count
+                    Count = resources.Count
                 }
             };
 
@@ -320,10 +321,20 @@ public static class DocumentsEndpoints
         string spaceId,
         string documentId,
         RestApiProjectResolver projectResolver,
-        int limit = 10)
+        [FromQuery(Name = "page[size]")] int pageSize = 100)
     {
-        Log.Debug("REST API: GetDocumentRevisions called for project={ProjectId}, space={SpaceId}, document={DocumentId}, limit={Limit}",
-            projectId, spaceId, documentId, limit);
+        // Clamp pageSize: min 1, max 500
+        if (pageSize < 1)
+        {
+            pageSize = 1;
+        }
+        else if (pageSize > 500)
+        {
+            pageSize = 500;
+        }
+
+        Log.Debug("REST API: GetDocumentRevisions called for project={ProjectId}, space={SpaceId}, document={DocumentId}, pageSize={PageSize}",
+            projectId, spaceId, documentId, pageSize);
 
         if (string.IsNullOrWhiteSpace(spaceId) || string.IsNullOrWhiteSpace(documentId))
         {
@@ -351,7 +362,7 @@ public static class DocumentsEndpoints
         try
         {
             var location = $"{spaceId}/{documentId}";
-            var revisionsResult = await polarionClient.GetModuleRevisionsByLocationAsync(location, limit);
+            var revisionsResult = await polarionClient.GetModuleRevisionsByLocationAsync(location, pageSize);
             if (revisionsResult.IsFailed)
             {
                 var errorMsg = revisionsResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";
@@ -395,7 +406,7 @@ public static class DocumentsEndpoints
                 },
                 Meta = new JsonApiMeta
                 {
-                    TotalCount = resources.Count
+                    Count = resources.Count
                 }
             };
 
