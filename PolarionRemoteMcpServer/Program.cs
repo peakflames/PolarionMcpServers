@@ -2,12 +2,14 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
+using Microsoft.OpenApi.Models;
 using Scalar.AspNetCore;
 
 // using Microsoft.Extensions.Hosting; // Not directly used for WebApplication
 // using Microsoft.Extensions.Logging; // No longer directly used here, Serilog handles it
 using Polarion;
 using PolarionMcpTools; // Added for IPolarionClientFactory and PolarionClientFactory
+using PolarionRemoteMcpServer.Authentication;
 using PolarionRemoteMcpServer.Endpoints;
 using PolarionRemoteMcpServer.Services;
 using Serilog;
@@ -85,6 +87,10 @@ public class Program
             //
             builder.Services.AddSerilog();
 
+            // Add API key authentication for REST API endpoints
+            //
+            builder.Services.AddApiKeyAuthentication(builder.Configuration);
+
             // Add OpenAPI for REST API documentation
             // Note: OpenAPI requires its own JSON serializer options with reflection support for schema generation
             //
@@ -95,6 +101,37 @@ public class Program
                     document.Info.Title = "Polarion MCP Server REST API";
                     document.Info.Version = "v1";
                     document.Info.Description = "REST API endpoints compatible with Polarion REST API format";
+
+                    // Add security schemes to the document
+                    document.Components ??= new();
+                    document.Components.SecuritySchemes = new Dictionary<string, OpenApiSecurityScheme>
+                    {
+                        // API Key Authentication (header-based)
+                        ["ApiKey"] = new()
+                        {
+                            Type = SecuritySchemeType.ApiKey,
+                            In = ParameterLocation.Header,
+                            Name = "X-API-Key",
+                            Description = "API Key authentication. Obtain your API key from the system administrator."
+                        }
+                    };
+
+                    // Apply security requirements globally
+                    // This makes ALL endpoints require API Key auth by default in the documentation
+                    document.SecurityRequirements =
+                    [
+                        new()
+                        {
+                            {
+                                new OpenApiSecurityScheme
+                                {
+                                    Reference = new() { Type = ReferenceType.SecurityScheme, Id = "ApiKey" }
+                                },
+                                new string[] { }
+                            }
+                        }
+                    ];
+
                     return Task.CompletedTask;
                 });
             });
@@ -125,6 +162,10 @@ public class Program
             //
             Log.Information("Starting PolarionMcpServer...");
             var app = builder.Build();
+
+            // Add authentication and authorization middleware
+            //
+            app.UseApiKeyAuthentication();
 
             // SSE stream disconnection workaround for Cline/TypeScript MCP SDK (streamableHttp only)
             // The TypeScript MCP SDK has a bug where GET requests wait in a loop that can timeout.
