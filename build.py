@@ -135,6 +135,7 @@ def start_background() -> None:
     if is_process_running(process.pid):
         print(f"✓ Application is running at http://localhost:{DEV_PORT}")
         print(f"  MCP endpoint: http://localhost:{DEV_PORT}/mcp")
+        print(f"  API Docs: http://localhost:{DEV_PORT}/scalar/v1")
     else:
         print("✗ Application failed to start. Check log file for details:")
         print(f"  python build.py log --tail 50")
