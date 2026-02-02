@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using PolarionRemoteMcpServer.Endpoints;
 using PolarionRemoteMcpServer.Models.JsonApi;
 
 namespace PolarionRemoteMcpServer;
@@ -48,6 +49,14 @@ namespace PolarionRemoteMcpServer;
 // Error response type
 [JsonSerializable(typeof(JsonApiDocument<object>))]
 [JsonSerializable(typeof(List<JsonApiError>))]
+
+// Health endpoint types
+[JsonSerializable(typeof(VersionInfo))]
+[JsonSerializable(typeof(string))]
+
+// Common nullable types used in query parameters
+[JsonSerializable(typeof(int?))]
+[JsonSerializable(typeof(int))]
 public partial class PolarionRestApiJsonContext : JsonSerializerContext
 {
 }
