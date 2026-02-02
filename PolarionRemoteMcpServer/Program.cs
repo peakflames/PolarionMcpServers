@@ -1,11 +1,17 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
+using Microsoft.OpenApi.Models;
+using Scalar.AspNetCore;
 
 // using Microsoft.Extensions.Hosting; // Not directly used for WebApplication
 // using Microsoft.Extensions.Logging; // No longer directly used here, Serilog handles it
 using Polarion;
 using PolarionMcpTools; // Added for IPolarionClientFactory and PolarionClientFactory
+using PolarionRemoteMcpServer.Authentication;
+using PolarionRemoteMcpServer.Endpoints;
+using PolarionRemoteMcpServer.Services;
 using Serilog;
 using Microsoft.Extensions.Configuration;
 
@@ -38,12 +44,13 @@ public class Program
             //
             builder.Services.AddHttpContextAccessor();
 
-            // Configure JsonSerializerOptions to use the source generator context
+            // Configure JsonSerializerOptions to use the source generator contexts
             //
             builder.Services.Configure<JsonSerializerOptions>(options =>
             {
-                // Ensure our source generator context is prioritized for JSON operations
+                // Ensure our source generator contexts are prioritized for JSON operations
                 options.TypeInfoResolverChain.Insert(0, PolarionConfigJsonContext.Default);
+                options.TypeInfoResolverChain.Insert(0, PolarionRestApiJsonContext.Default);
             });
 
 
@@ -80,10 +87,69 @@ public class Program
             //
             builder.Services.AddSerilog();
 
+            // Add API key authentication for REST API endpoints
+            //
+            builder.Services.AddApiKeyAuthentication(builder.Configuration);
+
+            // Add OpenAPI for REST API documentation
+            // Note: OpenAPI requires its own JSON serializer options with reflection support for schema generation
+            //
+            builder.Services.AddOpenApi(options =>
+            {
+                options.AddDocumentTransformer((document, context, cancellationToken) =>
+                {
+                    document.Info.Title = "Polarion MCP Server REST API";
+                    document.Info.Version = "v1";
+                    document.Info.Description = "REST API endpoints compatible with Polarion REST API format";
+
+                    // Add security schemes to the document
+                    document.Components ??= new();
+                    document.Components.SecuritySchemes = new Dictionary<string, OpenApiSecurityScheme>
+                    {
+                        // API Key Authentication (header-based)
+                        ["ApiKey"] = new()
+                        {
+                            Type = SecuritySchemeType.ApiKey,
+                            In = ParameterLocation.Header,
+                            Name = "X-API-Key",
+                            Description = "API Key authentication. Obtain your API key from the system administrator."
+                        }
+                    };
+
+                    // Apply security requirements globally
+                    // This makes ALL endpoints require API Key auth by default in the documentation
+                    document.SecurityRequirements =
+                    [
+                        new()
+                        {
+                            {
+                                new OpenApiSecurityScheme
+                                {
+                                    Reference = new() { Type = ReferenceType.SecurityScheme, Id = "ApiKey" }
+                                },
+                                new string[] { }
+                            }
+                        }
+                    ];
+
+                    return Task.CompletedTask;
+                });
+            });
+
+            // Override the JSON options specifically for OpenAPI schema generation
+            // This uses reflection-based serialization needed for schema generation
+            builder.Services.ConfigureHttpJsonOptions(options =>
+            {
+                // Ensure the OpenAPI context is also available
+                options.SerializerOptions.TypeInfoResolverChain.Insert(0, PolarionRestApiJsonContext.Default);
+                options.SerializerOptions.TypeInfoResolverChain.Insert(0, PolarionConfigJsonContext.Default);
+            });
+
             // Add the configurations and the factory to the DI container
             //
             builder.Services.AddSingleton(polarionProjects); // Register the list of project configurations
-            builder.Services.AddScoped<IPolarionClientFactory, PolarionRemoteClientFactory>();
+            builder.Services.AddScoped<IPolarionClientFactory, PolarionRemoteClientFactory>(); // For MCP endpoints (uses ProjectUrlAlias)
+            builder.Services.AddScoped<RestApiProjectResolver>(); // For REST API endpoints (uses SessionConfig.ProjectId)
 
             // Add the McpServer to the DI container
             //
@@ -97,6 +163,10 @@ public class Program
             Log.Information("Starting PolarionMcpServer...");
             var app = builder.Build();
 
+            // Add authentication and authorization middleware
+            //
+            app.UseApiKeyAuthentication();
+
             // SSE stream disconnection workaround for Cline/TypeScript MCP SDK (streamableHttp only)
             // The TypeScript MCP SDK has a bug where GET requests wait in a loop that can timeout.
             // This middleware intercepts GET requests to streamableHttp endpoints and sends a dummy response.
@@ -105,12 +175,17 @@ public class Program
             // See: https://github.com/modelcontextprotocol/typescript-sdk/issues/1211
             app.Use(async (context, next) =>
             {
-                // Only intercept GET requests for streamableHttp transport (NOT /sse or /message endpoints)
+                // Only intercept GET requests for streamableHttp transport
+                // Exclude: /sse, /message, REST API, OpenAPI, Scalar, api/*, or root
                 var path = context.Request.Path.Value;
                 if (context.Request.Method == "GET" &&
                     path != null &&
                     !path.EndsWith("/sse") &&
                     !path.EndsWith("/message") &&
+                    !path.StartsWith("/polarion/rest", StringComparison.OrdinalIgnoreCase) &&
+                    !path.StartsWith("/openapi", StringComparison.OrdinalIgnoreCase) &&
+                    !path.StartsWith("/scalar", StringComparison.OrdinalIgnoreCase) &&
+                    !path.StartsWith("/api", StringComparison.OrdinalIgnoreCase) &&
                     !path.Equals("/", StringComparison.Ordinal))
                 {
                     Log.Debug("StreamableHttp workaround: Intercepting GET {Path}", context.Request.Path);
@@ -128,10 +203,41 @@ public class Program
                 await next();
             });
 
+            // Get version info for logging
+            var assembly = Assembly.GetExecutingAssembly();
+            var version = assembly.GetName().Version?.ToString() ?? "Unknown";
+
+            // Map OpenAPI and Scalar API documentation endpoints
+            //
+            app.MapOpenApi();
+            app.MapScalarApiReference(options =>
+            {
+                options
+                    .WithTitle("Polarion MCP Server REST API")
+                    .WithTheme(ScalarTheme.DeepSpace)
+                    .WithLayout(ScalarLayout.Modern)
+                    .WithDarkMode(true)
+                    .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
+            });
+            Log.Information("Scalar API documentation available at /scalar/v1");
+
+            // Map health and version endpoints
+            //
+            app.MapHealthEndpoints();
+            Log.Information("Health endpoints mapped at /api/health and /api/version");
+
             // Map MCP endpoints
             //
             app.MapMcp("{projectId}");        // /{projectId}, /{projectId}/sse
             app.MapMcp("{projectId}/mcp");    // /{projectId}/mcp (streamable HTTP)
+
+            // Map REST API endpoints (Polarion REST API compatible)
+            //
+            app.MapWorkItemsEndpoints();
+            app.MapSpacesEndpoints();
+            app.MapDocumentsEndpoints();
+            Log.Information("REST API endpoints mapped at /polarion/rest/v1/projects/{{projectId}}/...");
+            Log.Information("PolarionMcpServer v{Version} started successfully", version);
 
             app.Run();
             return 0;
