@@ -6,8 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
 
     <!-- Container Support -->
-    <Version>0.10.0</Version>
-    <ContainerImageTag>0.10.0</ContainerImageTag>
+    <Version>0.11.0</Version>
+    <ContainerImageTag>0.11.0</ContainerImageTag>
     <EnableSdkContainerSupport>true</EnableSdkContainerSupport>
     <ContainerRepository>peakflames/polarion-remote-mcp-server</ContainerRepository>
 
