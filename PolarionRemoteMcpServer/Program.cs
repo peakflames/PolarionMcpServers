@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Http;
 // using Microsoft.Extensions.Logging; // No longer directly used here, Serilog handles it
 using Polarion;
 using PolarionMcpTools; // Added for IPolarionClientFactory and PolarionClientFactory
+using PolarionRemoteMcpServer.Endpoints;
+using PolarionRemoteMcpServer.Services;
 using Serilog;
 using Microsoft.Extensions.Configuration;
 
@@ -38,12 +40,13 @@ public class Program
             //
             builder.Services.AddHttpContextAccessor();
 
-            // Configure JsonSerializerOptions to use the source generator context
+            // Configure JsonSerializerOptions to use the source generator contexts
             //
             builder.Services.Configure<JsonSerializerOptions>(options =>
             {
-                // Ensure our source generator context is prioritized for JSON operations
+                // Ensure our source generator contexts are prioritized for JSON operations
                 options.TypeInfoResolverChain.Insert(0, PolarionConfigJsonContext.Default);
+                options.TypeInfoResolverChain.Insert(0, PolarionRestApiJsonContext.Default);
             });
 
 
@@ -83,7 +86,8 @@ public class Program
             // Add the configurations and the factory to the DI container
             //
             builder.Services.AddSingleton(polarionProjects); // Register the list of project configurations
-            builder.Services.AddScoped<IPolarionClientFactory, PolarionRemoteClientFactory>();
+            builder.Services.AddScoped<IPolarionClientFactory, PolarionRemoteClientFactory>(); // For MCP endpoints (uses ProjectUrlAlias)
+            builder.Services.AddScoped<RestApiProjectResolver>(); // For REST API endpoints (uses SessionConfig.ProjectId)
 
             // Add the McpServer to the DI container
             //
@@ -105,12 +109,13 @@ public class Program
             // See: https://github.com/modelcontextprotocol/typescript-sdk/issues/1211
             app.Use(async (context, next) =>
             {
-                // Only intercept GET requests for streamableHttp transport (NOT /sse or /message endpoints)
+                // Only intercept GET requests for streamableHttp transport (NOT /sse, /message, REST API, or root)
                 var path = context.Request.Path.Value;
                 if (context.Request.Method == "GET" &&
                     path != null &&
                     !path.EndsWith("/sse") &&
                     !path.EndsWith("/message") &&
+                    !path.StartsWith("/polarion/rest", StringComparison.OrdinalIgnoreCase) &&
                     !path.Equals("/", StringComparison.Ordinal))
                 {
                     Log.Debug("StreamableHttp workaround: Intercepting GET {Path}", context.Request.Path);
@@ -132,6 +137,13 @@ public class Program
             //
             app.MapMcp("{projectId}");        // /{projectId}, /{projectId}/sse
             app.MapMcp("{projectId}/mcp");    // /{projectId}/mcp (streamable HTTP)
+
+            // Map REST API endpoints (Polarion REST API compatible)
+            //
+            app.MapWorkItemsEndpoints();
+            app.MapSpacesEndpoints();
+            app.MapDocumentsEndpoints();
+            Log.Information("REST API endpoints mapped at /polarion/rest/v1/projects/{{projectId}}/...");
 
             app.Run();
             return 0;
