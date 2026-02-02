@@ -2,7 +2,11 @@
 
 ## 0.10.0
 
-TBD
+### Added
+
+- Add `/{projectId}/mcp` endpoint for Streamable HTTP transport
+  - Provides alternative URL pattern alongside existing `/{projectId}` endpoint
+  - Both endpoints support the same MCP tools and project routing
 
 ## 0.9.0
 
