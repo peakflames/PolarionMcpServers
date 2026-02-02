@@ -51,6 +51,33 @@ docker push peakflames/polarion-remote-mcp-server:{{VERSION}}
    - TransportType: SSE
    - URL: http://{{your-server-ip}}:5090/{ProjectUrlAlias}/sse
 
+## Testing REST API Endpoints
+
+The server includes REST API endpoints compatible with Polarion REST API format. Use the built-in Scalar UI for interactive testing:
+
+1. Start the server: `python build.py start`
+2. Open the Scalar API documentation: http://localhost:5090/scalar/v1
+3. Browse and test available endpoints interactively
+
+Alternative testing methods:
+
+```bash
+# Check server health
+curl http://localhost:5090/api/health
+
+# Get version info
+curl http://localhost:5090/api/version
+
+# Get OpenAPI spec
+curl http://localhost:5090/openapi/v1.json
+
+# Test REST endpoints (use SessionConfig.ProjectId as projectId)
+curl http://localhost:5090/polarion/rest/v1/projects/{projectId}/spaces
+curl http://localhost:5090/polarion/rest/v1/projects/{projectId}/workitems/{workitemId}
+```
+
+**Note:** REST API endpoints use `SessionConfig.ProjectId` for project matching, not `ProjectUrlAlias`. This differs from MCP endpoints which use `ProjectUrlAlias`.
+
 ## Development Guidelines
 
 For detailed development guidelines including coding conventions, tool implementation patterns, and best practices, see [.clinerules/DEVELOPER_GUIDELINES.md](.clinerules/DEVELOPER_GUIDELINES.md).

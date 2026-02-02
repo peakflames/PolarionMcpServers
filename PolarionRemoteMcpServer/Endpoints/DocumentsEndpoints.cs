@@ -315,7 +315,7 @@ public static class DocumentsEndpoints
         string spaceId,
         string documentId,
         RestApiProjectResolver projectResolver,
-        int? limit = 10)
+        int limit = 10)
     {
         Log.Debug("REST API: GetDocumentRevisions called for project={ProjectId}, space={SpaceId}, document={DocumentId}, limit={Limit}",
             projectId, spaceId, documentId, limit);
@@ -346,7 +346,7 @@ public static class DocumentsEndpoints
         try
         {
             var location = $"{spaceId}/{documentId}";
-            var revisionsResult = await polarionClient.GetModuleRevisionsByLocationAsync(location, limit ?? 10);
+            var revisionsResult = await polarionClient.GetModuleRevisionsByLocationAsync(location, limit);
             if (revisionsResult.IsFailed)
             {
                 var errorMsg = revisionsResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";

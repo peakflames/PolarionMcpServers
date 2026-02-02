@@ -120,7 +120,7 @@ public static class WorkItemsEndpoints
         string projectId,
         string workitemId,
         RestApiProjectResolver projectResolver,
-        int? limit = 10)
+        int limit = 10)
     {
         Log.Debug("REST API: GetWorkItemRevisions called for project={ProjectId}, workitemId={WorkitemId}, limit={Limit}",
             projectId, workitemId, limit);
@@ -150,7 +150,7 @@ public static class WorkItemsEndpoints
 
         try
         {
-            var revisionsResult = await polarionClient.GetWorkItemRevisionsByIdAsync(workitemId, limit ?? 10);
+            var revisionsResult = await polarionClient.GetWorkItemRevisionsByIdAsync(workitemId, limit);
             if (revisionsResult.IsFailed)
             {
                 var errorMsg = revisionsResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";

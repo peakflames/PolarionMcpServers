@@ -2,7 +2,21 @@
 
 ## 0.11.0
 
-TBD
+### Added
+
+- Add REST API endpoints compatible with Polarion REST API format (JSON:API)
+  - `GET /polarion/rest/v1/projects/{projectId}/workitems/{workitemId}` - Get work item details
+  - `GET /polarion/rest/v1/projects/{projectId}/workitems/{workitemId}/revisions` - Get work item revisions
+  - `GET /polarion/rest/v1/projects/{projectId}/spaces` - List spaces
+  - `GET /polarion/rest/v1/projects/{projectId}/spaces/{spaceId}/documents` - List documents in space
+  - `GET /polarion/rest/v1/projects/{projectId}/spaces/{spaceId}/documents/{documentId}` - Get document details
+  - `GET /polarion/rest/v1/projects/{projectId}/spaces/{spaceId}/documents/{documentId}/workitems` - Get work items in document
+  - `GET /polarion/rest/v1/projects/{projectId}/spaces/{spaceId}/documents/{documentId}/revisions` - Get document revisions
+  - Note: REST API uses `SessionConfig.ProjectId` for project matching (not `ProjectUrlAlias`)
+- Add Scalar API documentation UI at `/scalar/v1` for interactive API testing
+- Add OpenAPI specification at `/openapi/v1.json`
+- Add health check endpoint at `/api/health`
+- Add version endpoint at `/api/version`
 
 ## 0.10.0
 

@@ -110,7 +110,11 @@ MCP Tools are available for Polarion work items, including:
 1. The server should now be running. MCP clients will connect using a URL specific to the desired project configuration alias:
    1. Streamable HTTP Transport: `http://{{your-server-ip}}:8080/{ProjectUrlAlias}`.
    2. SSE Transport: `http://{{your-server-ip}}:8080/{ProjectUrlAlias}/sse`.
-2. 📢IMPORTANT - Do NOT run with replica instances of the server as the session connection will not be shared between replicas.
+2. The server also provides:
+   - REST API: `http://{{your-server-ip}}:8080/polarion/rest/v1/projects/{ProjectId}/...` (uses `SessionConfig.ProjectId`)
+   - API Documentation: `http://{{your-server-ip}}:8080/scalar/v1`
+   - Health Check: `http://{{your-server-ip}}:8080/api/health`
+3. 📢IMPORTANT - Do NOT run with replica instances of the server as the session connection will not be shared between replicas.
 
 ### Configuration Options (`appsettings.json`)
 
