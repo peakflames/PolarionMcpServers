@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0
+
+### Added
+
+- Add middleware workaround for Cline/TypeScript MCP SDK SSE stream disconnection issues
+  - Intercepts GET requests for streamableHttp transport and returns dummy SSE response
+  - Addresses timeout errors reported in [cline/cline#8367](https://github.com/cline/cline/issues/8367) and [typescript-sdk#1211](https://github.com/modelcontextprotocol/typescript-sdk/issues/1211)
+  - Recommended: Use `streamableHttp` transport instead of `sse` for better stability
+
 ## 0.8.0
 
 ### Changed
