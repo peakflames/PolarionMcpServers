@@ -301,16 +301,19 @@ def search_log(pattern: Optional[str] = None, tail: int = 0, level: Optional[str
         print(f"Error reading log file: {e}")
 
 
-async def run_mcp_command(subcommand: str, tool_name: Optional[str] = None, 
-                          tool_args: Optional[str] = None, timeout: int = 200) -> int:
+async def run_mcp_command(subcommand: str, tool_name: Optional[str] = None,
+                          tool_args: Optional[str] = None, timeout: int = 200,
+                          project: Optional[str] = None) -> int:
     """Execute MCP client commands against the running server.
-    
+
     Args:
         subcommand: The MCP subcommand (tools, call, ping, info)
         tool_name: Name of the tool to call (for 'call' subcommand)
         tool_args: JSON string of arguments for tool call
         timeout: Timeout in seconds for operations (default: 200)
-    
+        project: Optional project alias (e.g., 'midnight-limitations').
+                 If not specified, uses default endpoint which routes to default project
+
     Returns:
         Exit code (0 for success, 1 for error)
     """
@@ -319,15 +322,21 @@ async def run_mcp_command(subcommand: str, tool_name: Optional[str] = None,
         print("\nInstall it with:")
         print("  pip install fastmcp")
         return 1
-    
+
     # Check if server is running
     pid = get_running_pid()
     if not pid:
         print("✗ Application is not running")
         print("Start it first with: python build.py start")
         return 1
-    
-    mcp_url = f"http://localhost:{DEV_PORT}/mcp"
+
+    # Build MCP URL with optional project routing
+    if project:
+        mcp_url = f"http://localhost:{DEV_PORT}/{project}/mcp"
+        print(f"Connecting to project: {project}")
+    else:
+        mcp_url = f"http://localhost:{DEV_PORT}/mcp"
+        print(f"Connecting to default project (midnight)")
     
     try:
         # Pass timeout to client constructor - this applies to all MCP operations
@@ -435,10 +444,136 @@ async def run_mcp_command(subcommand: str, tool_name: Optional[str] = None,
         return 1
 
 
-def run_mcp(subcommand: str, tool_name: Optional[str] = None, 
-            tool_args: Optional[str] = None, timeout: int = 200) -> int:
+def run_mcp(subcommand: str, tool_name: Optional[str] = None,
+            tool_args: Optional[str] = None, timeout: int = 200,
+            project: Optional[str] = None) -> int:
     """Synchronous wrapper for run_mcp_command."""
-    return asyncio.run(run_mcp_command(subcommand, tool_name, tool_args, timeout))
+    return asyncio.run(run_mcp_command(subcommand, tool_name, tool_args, timeout, project))
+
+
+def run_rest(method: str, path: str, query_params: dict, project_alias: Optional[str] = None,
+             output_format: str = "pretty") -> int:
+    """Execute REST API calls with automatic auth and project translation.
+
+    Args:
+        method: HTTP method (GET, POST, etc.)
+        path: REST API path (can use {project} placeholder)
+        query_params: Dictionary of query parameters
+        project_alias: Optional project alias (defaults to 'midnight')
+        output_format: Output format ('pretty' or 'raw')
+
+    Returns:
+        Exit code (0 for success, 1 for error)
+    """
+    # Check if server is running
+    pid = get_running_pid()
+    if not pid:
+        print("✗ Application is not running")
+        print("Start it first with: python build.py start")
+        return 1
+
+    # Load appsettings to get API key and project config
+    try:
+        appsettings_path = Path("PolarionRemoteMcpServer/appsettings.Development.json")
+        if not appsettings_path.exists():
+            appsettings_path = Path("PolarionRemoteMcpServer/appsettings.json")
+
+        with open(appsettings_path, 'r') as f:
+            appsettings = json.load(f)
+    except Exception as e:
+        print(f"✗ Failed to load appsettings: {e}")
+        return 1
+
+    # Get first active API consumer
+    api_key = None
+    consumers = appsettings.get('ApiConsumers', {}).get('Consumers', {})
+    for consumer_id, consumer in consumers.items():
+        if consumer.get('Active', False):
+            api_key = consumer.get('ApplicationKey')
+            break
+
+    if not api_key:
+        print("✗ No active API consumer found in appsettings")
+        return 1
+
+    # Translate project alias to SessionConfig.ProjectId if {project} is in path
+    project_alias = project_alias or "midnight"
+    if "{project}" in path:
+        # Find project config by alias
+        project_id = None
+        projects = appsettings.get('PolarionProjects', [])
+        for proj in projects:
+            if proj.get('ProjectUrlAlias') == project_alias:
+                project_id = proj.get('SessionConfig', {}).get('ProjectId')
+                break
+
+        if not project_id:
+            print(f"✗ Project alias '{project_alias}' not found in configuration")
+            return 1
+
+        path = path.replace("{project}", project_id)
+        print(f"Project: {project_alias} → {project_id}")
+
+    # Build URL
+    base_url = f"http://localhost:{DEV_PORT}"
+    if not path.startswith('/'):
+        path = '/' + path
+
+    # Build query string from parameters
+    query_string = ""
+    if query_params:
+        query_parts = []
+        for key, value in query_params.items():
+            if value is not None:
+                # Handle page[size] special case
+                if key == "page[size]":
+                    query_parts.append(f"page%5Bsize%5D={value}")
+                else:
+                    from urllib.parse import quote
+                    query_parts.append(f"{key}={quote(str(value))}")
+        if query_parts:
+            query_string = "?" + "&".join(query_parts)
+
+    full_url = base_url + path + query_string
+
+    print(f"Request: {method} {path}{query_string}")
+
+    # Make request using curl
+    try:
+        import subprocess
+        cmd = [
+            "curl", "-s", "-X", method,
+            full_url,
+            "-H", f"X-API-Key: {api_key}",
+            "-w", "\n\nHTTP_STATUS:%{http_code}"
+        ]
+
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        output = result.stdout
+
+        # Split response and status code
+        parts = output.rsplit("\n\nHTTP_STATUS:", 1)
+        response_body = parts[0] if len(parts) > 0 else output
+        status_code = parts[1].strip() if len(parts) > 1 else "unknown"
+
+        print(f"Status: {status_code}")
+        print()
+
+        # Format output
+        if output_format == "pretty" and response_body:
+            try:
+                data = json.loads(response_body)
+                print(json.dumps(data, indent=2))
+            except json.JSONDecodeError:
+                print(response_body)
+        else:
+            print(response_body)
+
+        return 0 if status_code.startswith('2') else 1
+
+    except Exception as e:
+        print(f"✗ REST Error: {e}")
+        return 1
 
 
 def print_usage() -> None:
@@ -453,10 +588,24 @@ def print_usage() -> None:
     print("  status       - Check if application is running")
     print("")
     print("MCP Commands (requires: pip install fastmcp psutil):")
-    print("  mcp ping                 - Check MCP server connectivity")
-    print("  mcp info                 - Show MCP server information")
-    print("  mcp tools                - List available MCP tools")
-    print("  mcp call <tool> ['{...}'] - Call an MCP tool with JSON args")
+    print("  mcp ping [--project <alias>]              - Check MCP server connectivity")
+    print("  mcp info [--project <alias>]              - Show MCP server information")
+    print("  mcp tools [--project <alias>]             - List available MCP tools")
+    print("  mcp call <tool> ['{...}'] [--project <alias>] - Call an MCP tool with JSON args")
+    print("")
+    print("REST API Commands:")
+    print("  rest <method> <path> [options]            - Call REST API endpoints")
+    print("    --project <alias>    - Project to use (default: midnight)")
+    print("    --query <text>       - Search query")
+    print("    --types <types>      - Comma-separated work item types")
+    print("    --status <status>    - Comma-separated status values")
+    print("    --sort <field>       - Sort field")
+    print("    --page-size <n>      - Results per page")
+    print("    --limit <n>          - Limit results")
+    print("    --format <fmt>       - Output format: pretty (default) or raw")
+    print("")
+    print("  Project aliases: midnight (default), midnight-limitations, product-lifecycle,")
+    print("                   midnight-flight-test, blue-thunder, midnight-1-0, midnight-1-1")
     print("")
     print("Log Commands:")
     print("  log                      - Show last 50 lines of log")
@@ -472,9 +621,11 @@ def print_usage() -> None:
     print("")
     print("Examples:")
     print("  python build.py start                       # Build and start server")
-    print("  python build.py mcp tools                   # List all MCP tools")
-    print("  python build.py mcp call get_space_names   # Call a tool")
-    print('  python build.py mcp call get_workitems_in_module \'{"moduleFolder": "_default", "documentId": "MyDoc"}\'')
+    print("  python build.py mcp tools                   # List all MCP tools (default project)")
+    print("  python build.py rest GET api/health         # Check API health")
+    print('  python build.py rest GET "polarion/rest/v1/projects/{project}/workitems" --query rigging --project midnight')
+    print('  python build.py rest GET "polarion/rest/v1/projects/{project}/workitems/MD-12345" --project midnight')
+    print('  python build.py rest GET "polarion/rest/v1/projects/{project}/spaces" --project midnight')
     print("  python build.py log --level error           # View error logs")
     print("  python build.py stop                        # Stop the server")
 
@@ -527,22 +678,86 @@ def main() -> None:
     if command == "mcp":
         if len(sys.argv) < 3:
             print("Error: mcp requires a subcommand")
-            print("Usage: python build.py mcp <ping|info|tools|call> [args]")
+            print("Usage: python build.py mcp <ping|info|tools|call> [--project <alias>] [args]")
             sys.exit(1)
-        
+
         subcommand = sys.argv[2]
         tool_name = None
         tool_args = None
-        
-        # For 'call' subcommand, parse tool name and optional args
-        if subcommand == "call":
-            if len(sys.argv) >= 4:
-                tool_name = sys.argv[3]
-            if len(sys.argv) >= 5:
-                tool_args = sys.argv[4]
-        
-        sys.exit(run_mcp(subcommand, tool_name, tool_args))
-    
+        project = None
+
+        # Parse remaining arguments
+        args = sys.argv[3:]
+        i = 0
+        while i < len(args):
+            if args[i] == "--project" and i + 1 < len(args):
+                project = args[i + 1]
+                i += 2
+            elif subcommand == "call":
+                if tool_name is None:
+                    tool_name = args[i]
+                    i += 1
+                elif tool_args is None:
+                    tool_args = args[i]
+                    i += 1
+                else:
+                    print(f"Unexpected argument: {args[i]}")
+                    sys.exit(1)
+            else:
+                print(f"Unexpected argument: {args[i]}")
+                sys.exit(1)
+
+        sys.exit(run_mcp(subcommand, tool_name, tool_args, project=project))
+
+    # REST command
+    if command == "rest":
+        if len(sys.argv) < 4:
+            print("Error: rest requires method and path")
+            print("Usage: python build.py rest <method> <path> [options]")
+            print('Example: python build.py rest GET "polarion/rest/v1/projects/{project}/workitems" --query rigging')
+            sys.exit(1)
+
+        method = sys.argv[2].upper()
+        path = sys.argv[3]
+
+        # Parse remaining arguments
+        query_params = {}
+        project = None
+        output_format = "pretty"
+
+        args = sys.argv[4:]
+        i = 0
+        while i < len(args):
+            if args[i] == "--project" and i + 1 < len(args):
+                project = args[i + 1]
+                i += 2
+            elif args[i] == "--query" and i + 1 < len(args):
+                query_params["query"] = args[i + 1]
+                i += 2
+            elif args[i] == "--types" and i + 1 < len(args):
+                query_params["types"] = args[i + 1]
+                i += 2
+            elif args[i] == "--status" and i + 1 < len(args):
+                query_params["status"] = args[i + 1]
+                i += 2
+            elif args[i] == "--sort" and i + 1 < len(args):
+                query_params["sort"] = args[i + 1]
+                i += 2
+            elif args[i] == "--page-size" and i + 1 < len(args):
+                query_params["page[size]"] = args[i + 1]
+                i += 2
+            elif args[i] == "--limit" and i + 1 < len(args):
+                query_params["limit"] = args[i + 1]
+                i += 2
+            elif args[i] == "--format" and i + 1 < len(args):
+                output_format = args[i + 1]
+                i += 2
+            else:
+                print(f"Unknown option: {args[i]}")
+                sys.exit(1)
+
+        sys.exit(run_rest(method, path, query_params, project, output_format))
+
     # Help command
     if command in ["help", "--help", "-h"]:
         print_usage()

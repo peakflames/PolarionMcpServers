@@ -22,18 +22,75 @@ python build.py run      # Run in foreground (blocks terminal)
 
 ### MCP Commands (Model Context Protocol)
 ```bash
-python build.py mcp ping                              # Check MCP server connectivity
-python build.py mcp info                              # Show MCP server information
-python build.py mcp tools                             # List available MCP tools
-python build.py mcp call <tool> '{"arg": "value"}'    # Call an MCP tool with JSON args
+python build.py mcp ping [--project <alias>]                    # Check MCP server connectivity
+python build.py mcp info [--project <alias>]                    # Show MCP server information
+python build.py mcp tools [--project <alias>]                   # List available MCP tools
+python build.py mcp call <tool> '{"arg": "value"}' [--project <alias>]  # Call an MCP tool with JSON args
 ```
-**Examples:**
+
+**MCP Examples:**
 ```bash
-python build.py mcp call get_space_names
-python build.py mcp call get_workitems_in_module '{"moduleFolder": "L4_fcs", "documentId": "MyDoc"}'
-python build.py mcp call get_documents '{"titleContains": ""}'
+# Default project (midnight)
+python build.py mcp call search_workitems '{"searchQuery": "rigging", "maxResults": 10}'
+
+# Specific project
+python build.py mcp call search_workitems '{"searchQuery": "advisory", "itemTypes": "advisory"}' --project midnight-limitations
+python build.py mcp tools --project midnight-limitations
 ```
+
+**Available project aliases:** midnight (default), midnight-limitations, product-lifecycle, midnight-flight-test, blue-thunder, midnight-1-0, midnight-1-1
+
 **Note:** Use double quotes for JSON argument keys/values on Windows. If tools error with authentication failures, check that credentials are configured in `PolarionRemoteMcpServer/appsettings.json`.
+
+### REST API Commands
+
+```bash
+python build.py rest <method> <path> [options]
+```
+
+**REST Options:**
+
+- `--project <alias>` - Project to use (default: midnight). Use `{project}` placeholder in path
+- `--query <text>` - Search query
+- `--types <types>` - Comma-separated work item types
+- `--status <status>` - Comma-separated status values
+- `--sort <field>` - Sort field (can prefix with `-` for descending)
+- `--page-size <n>` - Results per page (for `page[size]` parameter)
+- `--limit <n>` - Limit results
+- `--format <fmt>` - Output format: `pretty` (default) or `raw`
+
+**REST Examples:**
+
+```bash
+# Health check
+python build.py rest GET api/health
+
+# Search work items (new endpoint)
+python build.py rest GET "polarion/rest/v1/projects/{project}/workitems" --query rigging --project midnight
+python build.py rest GET "polarion/rest/v1/projects/{project}/workitems" --query advisory --types advisory,limitation --page-size 10 --project midnight-limitations
+
+# Get specific work item
+python build.py rest GET "polarion/rest/v1/projects/{project}/workitems/MD-12345" --project midnight
+
+# Get work item revisions
+python build.py rest GET "polarion/rest/v1/projects/{project}/workitems/MD-12345/revisions" --limit 5 --project midnight
+
+# List spaces
+python build.py rest GET "polarion/rest/v1/projects/{project}/spaces" --project midnight
+
+# List documents in space
+python build.py rest GET "polarion/rest/v1/projects/{project}/spaces/FCC_L4/documents" --project midnight
+
+# Get work items in document
+python build.py rest GET "polarion/rest/v1/projects/{project}/spaces/FCC_L4/documents/FCC_L4_Requirements/workitems" --project midnight
+```
+
+**Key Features:**
+
+- Automatic API key authentication from appsettings
+- `{project}` placeholder replaced with SessionConfig.ProjectId
+- Pretty-printed JSON output by default
+- Works with all REST API endpoints
 
 ### Log Commands (for debugging)
 ```bash
