@@ -2,7 +2,10 @@
 
 ## 0.12.0 (In Development)
 
-Changes TBD
+## Added
+
+- Add forwarded headers support for reverse proxy
+  - Enable ForwardedHeaders middleware to correctly detect HTTPS, host, and client IP when running behind a reverse proxy. This ensures OpenAPI/Scalar displays the correct public URL instead of localhost.
 
 ## 0.11.0
 
