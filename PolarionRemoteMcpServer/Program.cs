@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.OpenApi.Models;
 using Scalar.AspNetCore;
 
@@ -162,6 +163,14 @@ public class Program
             //
             Log.Information("Starting PolarionMcpServer...");
             var app = builder.Build();
+
+            // Enable forwarded headers to correctly detect HTTPS and host when behind a reverse proxy
+            // This ensures OpenAPI/Scalar shows the correct URL (https://your-domain.com) instead of http://localhost
+            //
+            app.UseForwardedHeaders(new ForwardedHeadersOptions
+            {
+                ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
+            });
 
             // Add authentication and authorization middleware
             //
