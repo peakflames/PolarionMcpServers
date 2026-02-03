@@ -4,6 +4,44 @@
 
 ## Added
 
+- Add `search_workitems` MCP tool for project-wide work item search
+  - Search across entire Polarion project without requiring document IDs, space names, or work item IDs
+  - Uses native Polarion Lucene search API (`SearchWorkitemAsync`) for efficient queries
+  - Supports flexible search patterns: simple terms, OR logic (default), AND logic, and exact phrase matching
+  - Optional filters: `itemTypes` (comma-separated work item types), `statusFilter` (comma-separated statuses)
+  - Configurable results: `sortBy` (created/updated/id/title), `maxResults` (default 50, max 500)
+  - Returns markdown-formatted results with work item details including author, assignee, and description
+  - Complements existing `search_in_document` tool (document-scoped vs project-scoped search)
+- Add REST API endpoint for work item search: `GET /polarion/rest/v1/projects/{projectId}/workitems`
+  - Query parameters: `query` (required), `types`, `status`, `sort`, `page[size]`
+  - Returns JSON:API formatted results with metadata
+  - Requires API key authentication (`polarion:read` scope)
+  - Uses same Lucene search logic as `search_workitems` MCP tool
+  - Enables standard HTTP/REST access for integration with CI/CD, scripts, and external tools
+  - Examples:
+    - `GET /polarion/rest/v1/projects/Midnight/workitems?query=rigging`
+    - `GET /polarion/rest/v1/projects/MidnightLimitations/workitems?query=advisory&types=advisory,limitation&page[size]=10`
+- Add `rest` command to build.py for REST API testing
+  - Generic command that works with all REST API endpoints
+  - Syntax: `python build.py rest <method> <path> [options]`
+  - Supports `{project}` placeholder that gets replaced with SessionConfig.ProjectId
+  - Automatic API key authentication from appsettings
+  - Query parameter shortcuts: `--query`, `--types`, `--status`, `--sort`, `--page-size`, `--limit`
+  - Output formatting: `--format pretty` (default) or `raw`
+  - Examples:
+    - `python build.py rest GET api/health`
+    - `python build.py rest GET "polarion/rest/v1/projects/{project}/workitems" --query rigging --project midnight`
+    - `python build.py rest GET "polarion/rest/v1/projects/{project}/workitems" --query advisory --types advisory,limitation --project midnight-limitations`
+    - `python build.py rest GET "polarion/rest/v1/projects/{project}/spaces" --project midnight`
+- Add `--project` parameter to build.py MCP commands for project routing
+  - Enables testing MCP tools against specific Polarion projects via command line
+  - Defaults to "midnight" project when not specified
+  - Syntax: `python build.py mcp <command> --project <alias>`
+  - Supported projects: midnight (default), midnight-limitations, product-lifecycle, midnight-flight-test, blue-thunder, midnight-1-0, midnight-1-1
+  - Examples:
+    - `python build.py mcp tools --project midnight-limitations`
+    - `python build.py mcp call search_workitems '{"searchQuery": "advisory"}' --project midnight-limitations`
+- Add `assignee` field to `WorkItemAttributes` REST API model for work item search results
 - Add forwarded headers support for reverse proxy
   - Enable ForwardedHeaders middleware to correctly detect HTTPS, host, and client IP when running behind a reverse proxy. This ensures OpenAPI/Scalar displays the correct public URL instead of localhost.
 
