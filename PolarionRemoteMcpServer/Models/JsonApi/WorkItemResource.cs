@@ -62,6 +62,10 @@ public class WorkItemAttributes
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Priority { get; set; }
 
+    [JsonPropertyName("assignee")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Assignee { get; set; }
+
     [JsonExtensionData]
     public Dictionary<string, object>? CustomFields { get; set; }
 }
