@@ -25,6 +25,8 @@ public static class WorkItemsEndpoints
     {
         var group = app.MapGroup("/polarion/rest/v1/projects/{projectId}");
 
+        group.MapGet("/workitems", SearchWorkItems)
+            .RequireAuthorization(ApiScopes.PolarionRead);
         group.MapGet("/workitems/{workitemId}", GetWorkItem)
             .RequireAuthorization(ApiScopes.PolarionRead);
         group.MapGet("/workitems/{workitemId}/revisions", GetWorkItemRevisions)
@@ -252,5 +254,237 @@ public static class WorkItemsEndpoints
 
         var statusCode = int.Parse(status);
         return Results.Json(errorResponse, PolarionRestApiJsonContext.Default.JsonApiDocumentObject, statusCode: statusCode);
+    }
+
+    [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
+    private static async Task<IResult> SearchWorkItems(
+        string projectId,
+        RestApiProjectResolver projectResolver,
+        [FromQuery] string? query = null,
+        [FromQuery] string? types = null,
+        [FromQuery] string? status = null,
+        [FromQuery] string? sort = "created",
+        [FromQuery(Name = "page[size]")] int pageSize = 50)
+    {
+        Log.Debug("REST API: SearchWorkItems called for project={ProjectId}, query={Query}, types={Types}, status={Status}",
+            projectId, query, types, status);
+
+        // Validate query parameter
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return CreateErrorResponse("400", "Bad Request", "query parameter is required.");
+        }
+
+        // Clamp pageSize
+        if (pageSize < 1) pageSize = 1;
+        if (pageSize > 500) pageSize = 500;
+
+        // Validate sort field and direction
+        var sortField = sort ?? "created";
+        var sortDescending = sortField.StartsWith("-");
+        if (sortDescending) sortField = sortField[1..];
+
+        var validSortFields = new[] { "created", "updated", "id", "title" };
+        if (!validSortFields.Contains(sortField.ToLower()))
+        {
+            return CreateErrorResponse("400", "Bad Request",
+                $"Invalid sort field '{sort}'. Must be one of: {string.Join(", ", validSortFields)} (prefix with '-' for descending)");
+        }
+
+        // Get project config
+        var projectConfig = projectResolver.GetProjectConfig(projectId);
+        if (projectConfig == null)
+        {
+            return CreateNotFoundResponse(projectId, projectResolver.GetConfiguredProjectIds());
+        }
+
+        // Create client
+        var clientResult = await projectResolver.CreateClientAsync(projectId);
+        if (clientResult.IsFailed)
+        {
+            var errorMsg = clientResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";
+            Log.Error("REST API: Failed to create Polarion client: {Error}", errorMsg);
+            return CreateErrorResponse("500", "Internal Server Error", errorMsg);
+        }
+
+        var polarionClient = clientResult.Value;
+
+        try
+        {
+            // Build Lucene query (reuse logic from MCP tool)
+            var luceneQuery = BuildLuceneQuery(query, types, status);
+
+            // Default field list
+            var fieldList = GetSearchFieldList();
+
+            // Call Polarion API
+            var searchResult = await polarionClient.SearchWorkitemAsync(
+                luceneQuery,
+                sortField.ToLower(),
+                fieldList);
+
+            if (searchResult.IsFailed)
+            {
+                var errorMsg = searchResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";
+                Log.Warning("REST API: Search failed: {Error}", errorMsg);
+
+                if (errorMsg.Contains("parse", StringComparison.OrdinalIgnoreCase))
+                {
+                    return CreateErrorResponse("400", "Bad Request",
+                        $"Invalid Lucene query syntax: {errorMsg}");
+                }
+
+                return CreateErrorResponse("500", "Internal Server Error", errorMsg);
+            }
+
+            var workItems = searchResult.Value ?? Array.Empty<Polarion.Generated.Tracker.WorkItem>();
+
+            // Convert to JSON:API format
+            var resources = workItems
+                .Take(pageSize)
+                .Select(wi => new WorkItemResource
+                {
+                    Id = $"{projectId}/{wi.id}",
+                    Attributes = new WorkItemAttributes
+                    {
+                        Title = wi.title,
+                        Type = wi.type?.id,
+                        Status = wi.status?.id,
+                        OutlineNumber = wi.outlineNumber,
+                        Created = wi.createdSpecified ? wi.created : null,
+                        Updated = wi.updatedSpecified ? wi.updated : null,
+                        Author = wi.author?.id,
+                        Assignee = wi.assignee != null && wi.assignee.Length > 0
+                            ? wi.assignee[0]?.id
+                            : null,
+                        Description = wi.description?.content
+                    },
+                    Links = new JsonApiLinks
+                    {
+                        Self = $"/polarion/rest/v1/projects/{projectId}/workitems/{wi.id}"
+                    }
+                })
+                .ToList();
+
+            var queryString = $"query={Uri.EscapeDataString(query)}";
+            if (!string.IsNullOrWhiteSpace(types))
+                queryString += $"&types={Uri.EscapeDataString(types)}";
+            if (!string.IsNullOrWhiteSpace(status))
+                queryString += $"&status={Uri.EscapeDataString(status)}";
+            if (!string.IsNullOrWhiteSpace(sort))
+                queryString += $"&sort={Uri.EscapeDataString(sort)}";
+            queryString += $"&page[size]={pageSize}";
+
+            var response = new JsonApiDocument<List<WorkItemResource>>
+            {
+                Data = resources,
+                Links = new JsonApiLinks
+                {
+                    Self = $"/polarion/rest/v1/projects/{projectId}/workitems?{queryString}"
+                },
+                Meta = new WorkItemSearchMeta
+                {
+                    Count = resources.Count,
+                    Query = query,
+                    LuceneQuery = luceneQuery,
+                    TypeFilter = types,
+                    StatusFilter = status
+                }
+            };
+
+            return Results.Json(response, PolarionRestApiJsonContext.Default.JsonApiDocumentListWorkItemResource);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "REST API: Exception during work item search");
+            return CreateErrorResponse("500", "Internal Server Error", ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Builds a Lucene query from user inputs.
+    /// Same logic as the search_workitems MCP tool.
+    /// </summary>
+    private static string BuildLuceneQuery(string searchQuery, string? itemTypes, string? statusFilter)
+    {
+        var queryParts = new List<string>();
+
+        // Text search (searches ALL indexed fields in Polarion)
+        var textQuery = BuildTextSearchQuery(searchQuery);
+        if (!string.IsNullOrWhiteSpace(textQuery))
+        {
+            queryParts.Add($"({textQuery})");
+        }
+
+        // Type filter: (type:requirement OR type:testCase)
+        if (!string.IsNullOrWhiteSpace(itemTypes))
+        {
+            var types = itemTypes
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(t => $"type:{t}");
+
+            var typeQuery = types.Count() == 1
+                ? types.First()
+                : $"({string.Join(" OR ", types)})";
+            queryParts.Add(typeQuery);
+        }
+
+        // Status filter: (status:open OR status:in-progress)
+        if (!string.IsNullOrWhiteSpace(statusFilter))
+        {
+            var statuses = statusFilter
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(s => $"status:{s}");
+
+            var statusQuery = statuses.Count() == 1
+                ? statuses.First()
+                : $"({string.Join(" OR ", statuses)})";
+            queryParts.Add(statusQuery);
+        }
+
+        // Combine with AND
+        return string.Join(" AND ", queryParts);
+    }
+
+    /// <summary>
+    /// Builds the text search portion of the Lucene query.
+    /// Supports exact phrases, AND logic, and OR logic (default).
+    /// </summary>
+    private static string BuildTextSearchQuery(string searchQuery)
+    {
+        var trimmed = searchQuery.Trim();
+
+        // Exact phrase: "rigging timeout"
+        if (trimmed.StartsWith('"') && trimmed.EndsWith('"') && trimmed.Length > 2)
+        {
+            return trimmed;
+        }
+
+        // AND logic: HVBIT AND timeout
+        if (trimmed.Contains(" AND ", StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmed;
+        }
+
+        // OR logic (default): HVBIT timeout → (HVBIT OR timeout)
+        var terms = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (terms.Length == 1)
+        {
+            return terms[0];
+        }
+
+        return $"({string.Join(" OR ", terms)})";
+    }
+
+    /// <summary>
+    /// Returns the default list of fields to retrieve from Polarion for search results.
+    /// </summary>
+    private static List<string> GetSearchFieldList()
+    {
+        return new List<string>
+        {
+            "id", "title", "type", "status", "description",
+            "updated", "created", "outlineNumber", "author", "assignee"
+        };
     }
 }
