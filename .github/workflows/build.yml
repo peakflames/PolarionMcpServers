@@ -37,15 +37,15 @@ jobs:
       fail-fast: false  # Continue with other builds if one fails
       matrix:
         include:
-          - os: windows-latest
-            rid: win-x64
-            extension: .exe
+          # - os: windows-latest
+          #   rid: win-x64
+          #   extension: .exe
           - os: ubuntu-latest
             rid: linux-x64
             extension: ''
-          - os: macos-latest
-            rid: osx-x64
-            extension: ''
+          # - os: macos-latest
+          #   rid: osx-x64
+          #   extension: ''
 
     steps:
     - uses: actions/checkout@v4
@@ -100,10 +100,10 @@ jobs:
       - name: Rename executables for release
         run: |
           mkdir -p release-assets
-          cp "${{ env.PROJECT_NAME }}-win-x64/${{ env.PROJECT_NAME }}.exe" "release-assets/${{ env.PROJECT_NAME }}-win-x64.exe"
+          # cp "${{ env.PROJECT_NAME }}-win-x64/${{ env.PROJECT_NAME }}.exe" "release-assets/${{ env.PROJECT_NAME }}-win-x64.exe"
           cp "${{ env.PROJECT_NAME }}-linux-x64/${{ env.PROJECT_NAME }}" "release-assets/${{ env.PROJECT_NAME }}-linux-x64"
-          cp "${{ env.PROJECT_NAME }}-osx-x64/${{ env.PROJECT_NAME }}" "release-assets/${{ env.PROJECT_NAME }}-osx-x64"
-          chmod +x "release-assets/${{ env.PROJECT_NAME }}-linux-x64" "release-assets/${{ env.PROJECT_NAME }}-osx-x64"
+          # cp "${{ env.PROJECT_NAME }}-osx-x64/${{ env.PROJECT_NAME }}" "release-assets/${{ env.PROJECT_NAME }}-osx-x64"
+          chmod +x "release-assets/${{ env.PROJECT_NAME }}-linux-x64"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -112,9 +112,7 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref, '-alpha') || contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
           files: |
-            release-assets/${{ env.PROJECT_NAME }}-win-x64.exe
             release-assets/${{ env.PROJECT_NAME }}-linux-x64
-            release-assets/${{ env.PROJECT_NAME }}-osx-x64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -229,11 +227,11 @@ jobs:
       - name: Rename executables for pre-release
         run: |
           mkdir -p release-assets
-          cp "${{ env.PROJECT_NAME }}-win-x64/${{ env.PROJECT_NAME }}.exe" "release-assets/${{ env.PROJECT_NAME }}-win-x64.exe"
+          # cp "${{ env.PROJECT_NAME }}-win-x64/${{ env.PROJECT_NAME }}.exe" "release-assets/${{ env.PROJECT_NAME }}-win-x64.exe"
           cp "${{ env.PROJECT_NAME }}-linux-x64/${{ env.PROJECT_NAME }}" "release-assets/${{ env.PROJECT_NAME }}-linux-x64"
-          cp "${{ env.PROJECT_NAME }}-osx-x64/${{ env.PROJECT_NAME }}" "release-assets/${{ env.PROJECT_NAME }}-osx-x64"
-          chmod +x "release-assets/${{ env.PROJECT_NAME }}-linux-x64" "release-assets/${{ env.PROJECT_NAME }}-osx-x64"
-      
+          # cp "${{ env.PROJECT_NAME }}-osx-x64/${{ env.PROJECT_NAME }}" "release-assets/${{ env.PROJECT_NAME }}-osx-x64"
+          chmod +x "release-assets/${{ env.PROJECT_NAME }}-linux-x64"
+
       - name: Create Pre-Release
         uses: softprops/action-gh-release@v2
         with:
@@ -242,8 +240,6 @@ jobs:
           draft: false
           prerelease: true
           files: |
-            release-assets/${{ env.PROJECT_NAME }}-win-x64.exe
             release-assets/${{ env.PROJECT_NAME }}-linux-x64
-            release-assets/${{ env.PROJECT_NAME }}-osx-x64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
