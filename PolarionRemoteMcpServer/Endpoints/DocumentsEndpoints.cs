@@ -218,10 +218,11 @@ public static class DocumentsEndpoints
         string spaceId,
         string documentId,
         RestApiProjectResolver projectResolver,
-        string? types = null)
+        string? types = null,
+        string? revision = null)
     {
-        Log.Debug("REST API: GetDocumentWorkItems called for project={ProjectId}, space={SpaceId}, document={DocumentId}, types={Types}",
-            projectId, spaceId, documentId, types);
+        Log.Debug("REST API: GetDocumentWorkItems called for project={ProjectId}, space={SpaceId}, document={DocumentId}, types={Types}, revision={Revision}",
+            projectId, spaceId, documentId, types, revision);
 
         if (string.IsNullOrWhiteSpace(spaceId) || string.IsNullOrWhiteSpace(documentId))
         {
@@ -248,49 +249,130 @@ public static class DocumentsEndpoints
 
         try
         {
-            // Parse item types if provided
-            List<string>? typeList = null;
-            if (!string.IsNullOrWhiteSpace(types))
+            // Determine if this is a historical query
+            var isHistoricalQuery = !string.IsNullOrWhiteSpace(revision) && revision != "-1";
+            Polarion.Generated.Tracker.WorkItem[] workItems;
+            Dictionary<string, (string Revision, string HeadRevision, bool IsHistorical)>? revisionMetadata = null;
+
+            if (isHistoricalQuery)
             {
-                typeList = types.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+                // Historical revision query
+                if (!string.IsNullOrWhiteSpace(types))
+                {
+                    Log.Warning("REST API: Type filtering (types parameter) is not supported for historical queries (revision != null). Filter will be ignored.");
+                }
+
+                var workItemsResult = await polarionClient.GetWorkItemsByModuleRevisionAsync(
+                    spaceId, documentId, revision!);
+
+                if (workItemsResult.IsFailed)
+                {
+                    var errorMsg = workItemsResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";
+
+                    // Handle UnresolvableObjectException with helpful error
+                    if (errorMsg.Contains("UnresolvableObjectException", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return CreateErrorResponse("404", "Not Found",
+                            $"Document '{spaceId}/{documentId}' not found at revision '{revision}'. " +
+                            "The revision may be invalid or the document may not have existed at that revision.");
+                    }
+
+                    Log.Warning("REST API: Failed to get work items for {SpaceId}/{DocumentId} at revision {Revision}: {Error}",
+                        spaceId, documentId, revision, errorMsg);
+                    return CreateErrorResponse("500", "Internal Server Error", errorMsg);
+                }
+
+                var wiInfoArray = workItemsResult.Value;
+                workItems = wiInfoArray.Select(wi => wi.WorkItem).ToArray();
+
+                // Store revision metadata
+                revisionMetadata = new Dictionary<string, (string, string, bool)>();
+                foreach (var wiInfo in wiInfoArray)
+                {
+                    if (wiInfo?.WorkItem?.id != null)
+                    {
+                        revisionMetadata[wiInfo.WorkItem.id] = (wiInfo.Revision, wiInfo.HeadRevision, wiInfo.IsHistorical);
+                    }
+                }
+            }
+            else
+            {
+                // Current revision query - existing logic
+                List<string>? typeList = null;
+                if (!string.IsNullOrWhiteSpace(types))
+                {
+                    typeList = types.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+                }
+
+                var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(spaceId, documentId, typeList);
+                if (workItemsResult.IsFailed)
+                {
+                    var errorMsg = workItemsResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";
+                    Log.Warning("REST API: Failed to get work items for {SpaceId}/{DocumentId}: {Error}",
+                        spaceId, documentId, errorMsg);
+                    return CreateErrorResponse("500", "Internal Server Error", errorMsg);
+                }
+
+                workItems = workItemsResult.Value ?? Array.Empty<Polarion.Generated.Tracker.WorkItem>();
             }
 
-            var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(spaceId, documentId, typeList);
-            if (workItemsResult.IsFailed)
-            {
-                var errorMsg = workItemsResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";
-                Log.Warning("REST API: Failed to get work items for {SpaceId}/{DocumentId}: {Error}",
-                    spaceId, documentId, errorMsg);
-                return CreateErrorResponse("500", "Internal Server Error", errorMsg);
-            }
-
-            var workItems = workItemsResult.Value ?? Array.Empty<Polarion.Generated.Tracker.WorkItem>();
             var resources = new List<WorkItemResource>();
 
             foreach (var workItem in workItems)
             {
                 if (workItem == null) continue;
 
+                var attributes = new WorkItemAttributes
+                {
+                    Title = workItem.title,
+                    Type = workItem.type?.id,
+                    Status = workItem.status?.id,
+                    OutlineNumber = workItem.outlineNumber,
+                    Created = workItem.createdSpecified ? workItem.created : null,
+                    Updated = workItem.updatedSpecified ? workItem.updated : null,
+                    Author = workItem.author?.id,
+                    Description = workItem.description?.content
+                };
+
+                // Add revision metadata for historical queries
+                if (isHistoricalQuery && revisionMetadata != null &&
+                    workItem.id != null && revisionMetadata.TryGetValue(workItem.id, out var metadata))
+                {
+                    attributes.Revision = metadata.Revision;
+                    attributes.HeadRevision = metadata.HeadRevision;
+                    attributes.IsHistorical = metadata.IsHistorical;
+                }
+
                 var resource = new WorkItemResource
                 {
                     Id = $"{projectId}/{workItem.id}",
-                    Attributes = new WorkItemAttributes
-                    {
-                        Title = workItem.title,
-                        Type = workItem.type?.id,
-                        Status = workItem.status?.id,
-                        OutlineNumber = workItem.outlineNumber,
-                        Created = workItem.createdSpecified ? workItem.created : null,
-                        Updated = workItem.updatedSpecified ? workItem.updated : null,
-                        Author = workItem.author?.id,
-                        Description = workItem.description?.content
-                    },
+                    Attributes = attributes,
                     Links = new JsonApiLinks
                     {
                         Self = $"/polarion/rest/v1/projects/{projectId}/workitems/{workItem.id}"
                     }
                 };
                 resources.Add(resource);
+            }
+
+            var meta = new JsonApiMeta
+            {
+                Count = resources.Count
+            };
+
+            // Add revision info to meta for historical queries
+            if (isHistoricalQuery && revisionMetadata != null)
+            {
+                var historicalCount = revisionMetadata.Values.Count(m => m.IsHistorical);
+                var currentCount = resources.Count - historicalCount;
+
+                // Add custom metadata fields (using existing AdditionalProperties field)
+                meta.AdditionalProperties = new Dictionary<string, object>
+                {
+                    ["revision"] = revision!,
+                    ["historicalItemCount"] = historicalCount,
+                    ["currentItemCount"] = currentCount
+                };
             }
 
             var response = new JsonApiDocument<List<WorkItemResource>>
@@ -300,10 +382,7 @@ public static class DocumentsEndpoints
                 {
                     Self = $"/polarion/rest/v1/projects/{projectId}/spaces/{spaceId}/documents/{documentId}/workitems"
                 },
-                Meta = new JsonApiMeta
-                {
-                    Count = resources.Count
-                }
+                Meta = meta
             };
 
             return Results.Json(response, PolarionRestApiJsonContext.Default.JsonApiDocumentListWorkItemResource);
