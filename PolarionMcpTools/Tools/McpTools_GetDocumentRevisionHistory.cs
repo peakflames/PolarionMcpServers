@@ -6,7 +6,7 @@ public sealed partial class McpTools
     [McpServerTool(Name = "get_document_revision_history"),
      Description("Gets the revision history for a Polarion document/module. " +
                  "Returns revision IDs with metadata showing when the document was modified. " +
-                 "Use these revision IDs with get_workitems_in_branched_document.")]
+                 "Use these revision IDs with get_workitems_in_module, get_document_section, or search_in_document.")]
     public async Task<string> GetDocumentRevisionHistory(
         [Description("The Polarion space name (e.g., 'FCC_L4_Air8_1').")]
         string space,
