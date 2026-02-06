@@ -66,6 +66,7 @@ python build.py rest <method> <path> [options]
 - `--sort <field>` - Sort field (can prefix with `-` for descending)
 - `--page-size <n>` - Results per page (for `page[size]` parameter)
 - `--limit <n>` - Limit results
+- `--revision <n>` - Document revision number (for document workitem queries)
 - `--format <fmt>` - Output format: `pretty` (default) or `raw`
 
 **REST Examples:**
@@ -90,8 +91,11 @@ python build.py rest GET "polarion/rest/v1/projects/{project}/spaces" --project 
 # List documents in space
 python build.py rest GET "polarion/rest/v1/projects/{project}/spaces/FCC_L4/documents" --project midnight
 
-# Get work items in document
+# Get work items in document (current revision)
 python build.py rest GET "polarion/rest/v1/projects/{project}/spaces/FCC_L4/documents/FCC_L4_Requirements/workitems" --project midnight
+
+# Get work items in document at specific revision
+python build.py rest GET "polarion/rest/v1/projects/{project}/spaces/L1 - Aircraft/documents/l1_aircraft_requirements/workitems" --revision 618111 --project midnight
 ```
 
 **Key Features:**

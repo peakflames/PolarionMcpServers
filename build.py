@@ -751,6 +751,9 @@ def main() -> None:
             elif args[i] == "--limit" and i + 1 < len(args):
                 query_params["limit"] = args[i + 1]
                 i += 2
+            elif args[i] == "--revision" and i + 1 < len(args):
+                query_params["revision"] = args[i + 1]
+                i += 2
             elif args[i] == "--format" and i + 1 < len(args):
                 output_format = args[i + 1]
                 i += 2
