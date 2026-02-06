@@ -36,6 +36,15 @@ python build.py mcp call search_workitems '{"searchQuery": "rigging", "maxResult
 # Specific project
 python build.py mcp call search_workitems '{"searchQuery": "advisory", "itemTypes": "advisory"}' --project midnight-limitations
 python build.py mcp tools --project midnight-limitations
+
+# Query current work items in module
+python build.py mcp call get_workitems_in_module '{"space": "L1 - Aircraft", "documentId": "l1_aircraft_requirements"}'
+
+# Query work items at specific document revision
+python build.py mcp call get_workitems_in_module '{"space": "L1 - Aircraft", "documentId": "l1_aircraft_requirements", "revision": "618111"}'
+
+# With type filtering (current revision only)
+python build.py mcp call get_workitems_in_module '{"space": "L1 - Aircraft", "documentId": "l1_aircraft_requirements", "itemTypes": "aircraftRequirement"}'
 ```
 
 **Available project aliases:** midnight (default), midnight-limitations, product-lifecycle, midnight-flight-test, blue-thunder, midnight-1-0, midnight-1-1
