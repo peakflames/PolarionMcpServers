@@ -302,7 +302,7 @@ def search_log(pattern: Optional[str] = None, tail: int = 0, level: Optional[str
 
 
 async def run_mcp_command(subcommand: str, tool_name: Optional[str] = None,
-                          tool_args: Optional[str] = None, timeout: int = 200,
+                          tool_args: Optional[str] = None, timeout: int = 600,
                           project: Optional[str] = None) -> int:
     """Execute MCP client commands against the running server.
 
@@ -440,12 +440,14 @@ async def run_mcp_command(subcommand: str, tool_name: Optional[str] = None,
                 return 1
     
     except Exception as e:
-        print(f"✗ MCP Error: {e}")
+        print(f"✗ MCP Error ({type(e).__name__}): {e}")
+        import traceback
+        traceback.print_exc()
         return 1
 
 
 def run_mcp(subcommand: str, tool_name: Optional[str] = None,
-            tool_args: Optional[str] = None, timeout: int = 200,
+            tool_args: Optional[str] = None, timeout: int = 600,
             project: Optional[str] = None) -> int:
     """Synchronous wrapper for run_mcp_command."""
     return asyncio.run(run_mcp_command(subcommand, tool_name, tool_args, timeout, project))
