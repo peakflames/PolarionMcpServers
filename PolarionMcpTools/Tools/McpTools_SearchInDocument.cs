@@ -52,18 +52,50 @@ public sealed partial class McpTools
 
             try
             {
-                // Get all work items from the module using SQL relationship query
-                var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(
-                    space,
-                    documentId,
-                    null); // Get all types
+                // Get all work items from the module, using revision-aware API when needed
+                WorkItem[] allWorkItems;
 
-                if (workItemsResult.IsFailed)
+                if (revision == "-1")
                 {
-                    return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}'. Error: {workItemsResult.Errors.First().Message}";
-                }
+                    // Latest revision - use standard query
+                    var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(
+                        space,
+                        documentId,
+                        null); // Get all types
 
-                var allWorkItems = workItemsResult.Value;
+                    if (workItemsResult.IsFailed)
+                    {
+                        return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}'. Error: {workItemsResult.Errors.First().Message}";
+                    }
+
+                    allWorkItems = workItemsResult.Value;
+                }
+                else
+                {
+                    // Specific revision - use baseline revision API
+                    var workItemsResult = await polarionClient.GetWorkItemsByModuleRevisionAsync(
+                        space,
+                        documentId,
+                        revision);
+
+                    if (workItemsResult.IsFailed)
+                    {
+                        var errorMessage = workItemsResult.Errors.First().Message;
+
+                        if (errorMessage.Contains("UnresolvableObjectException", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return $"ERROR: (1044) Document '{space}/{documentId}' not found at revision '{revision}'. " +
+                                   "Use get_document_revision_history to find valid revision numbers.";
+                        }
+
+                        return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}' at revision '{revision}'. Error: {errorMessage}";
+                    }
+
+                    allWorkItems = workItemsResult.Value
+                        .Where(wi => wi?.WorkItem != null)
+                        .Select(wi => wi.WorkItem)
+                        .ToArray();
+                }
                 if (allWorkItems is null || allWorkItems.Length == 0)
                 {
                     return $"No work items found in module '{space}/{documentId}'.";
