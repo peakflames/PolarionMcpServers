@@ -90,7 +90,7 @@ public sealed partial class McpTools
                 }
 
                 // Format and return results
-                return FormatResults(workItems, searchQuery, luceneQuery, itemTypes, statusFilter, sortField, maxResults.Value);
+                return FormatResults(workItems, searchQuery, luceneQuery, itemTypes, statusFilter, sortField, maxResults ?? 50);
             }
             catch (Exception ex)
             {
@@ -189,6 +189,7 @@ public sealed partial class McpTools
     /// <summary>
     /// Formats search results as markdown.
     /// </summary>
+    [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
     private static string FormatResults(
         WorkItem[] workItems,
         string searchQuery,
