@@ -66,6 +66,18 @@ public class WorkItemAttributes
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Assignee { get; set; }
 
+    [JsonPropertyName("revision")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Revision { get; set; }
+
+    [JsonPropertyName("headRevision")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? HeadRevision { get; set; }
+
+    [JsonPropertyName("isHistorical")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? IsHistorical { get; set; }
+
     [JsonExtensionData]
     public Dictionary<string, object>? CustomFields { get; set; }
 }
