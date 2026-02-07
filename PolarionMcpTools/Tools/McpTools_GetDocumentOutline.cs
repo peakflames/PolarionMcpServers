@@ -7,10 +7,10 @@ public sealed partial class McpTools
      Description("Gets all section headings (table of contents) within a Polarion Document. " +
                  "Returns a Markdown document of only headings, ordered by outline number.")]
     public async Task<string> GetDocumentOutline(
-        [Description("The Polarion space name (e.g., 'FCC_L4_Air8_1').")]
+        [Description("The Polarion space name (e.g., 'MySpace').")]
         string space,
 
-        [Description("The document ID within the space (e.g., 'FCC_L4_Requirements').")]
+        [Description("The document ID within the space (e.g., 'MyDocument').")]
         string documentId,
 
         [Description("Document revision. Use '-1' for latest revision.")]

@@ -8,7 +8,7 @@ public sealed partial class McpTools
     [McpServerTool(Name = "get_workitem_details"),
      Description("Gets detailed information for WorkItems including standard fields, custom fields, and linked work items. Supports traceability with recursive link following.")]
     public async Task<string> GetWorkitemDetails(
-        [Description("Comma-separated list of WorkItem IDs (e.g., 'MD-123,MD-456').")] string workitemIds,
+        [Description("Comma-separated list of WorkItem IDs (e.g., 'WI-123,WI-456').")] string workitemIds,
         [Description("Custom fields: 'all', 'none', or comma-separated list (e.g., 'priority,severity').")] string? customFields = "none",
         [Description("Link direction filter: 'incoming' (items linking TO this), 'outgoing' (items this links TO), or 'both'.")] string? linkDirection = "both",
         [Description("Filter by link role. Comma-separated list (e.g., 'verifies,validates'). Leave empty for all link types.")] string? linkTypeFilter = null,

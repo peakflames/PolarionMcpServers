@@ -7,10 +7,10 @@ public sealed partial class McpTools
      Description("Gets content for a specific section heading and its sub-headings in a Polarion Document. " +
                  "Returns all work items within the specified section number prefix.")]
     public async Task<string> GetDocumentSection(
-        [Description("The Polarion space name (e.g., 'FCC_L4_Air8_1').")]
+        [Description("The Polarion space name (e.g., 'MySpace').")]
         string space,
 
-        [Description("The document ID within the space (e.g., 'FCC_L4_Requirements').")]
+        [Description("The document ID within the space (e.g., 'MyDocument').")]
         string documentId,
 
         [Description("Section number (e.g., '1' or '3.4.5'). Returns the entire section including sub-sections like 3.4.5.1, 3.4.5.2, etc.")]
@@ -47,18 +47,50 @@ public sealed partial class McpTools
 
             try
             {
-                // Get all work items from the module using SQL relationship query
-                var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(
-                    space,
-                    documentId,
-                    null); // Get all types
+                // Get all work items from the module, using revision-aware API when needed
+                WorkItem[] allWorkItems;
 
-                if (workItemsResult.IsFailed)
+                if (revision == "-1")
                 {
-                    return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}'. Error: {workItemsResult.Errors.First().Message}";
-                }
+                    // Latest revision - use standard query
+                    var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(
+                        space,
+                        documentId,
+                        null); // Get all types
 
-                var allWorkItems = workItemsResult.Value;
+                    if (workItemsResult.IsFailed)
+                    {
+                        return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}'. Error: {workItemsResult.Errors.First().Message}";
+                    }
+
+                    allWorkItems = workItemsResult.Value;
+                }
+                else
+                {
+                    // Specific revision - use baseline revision API
+                    var workItemsResult = await polarionClient.GetWorkItemsByModuleRevisionAsync(
+                        space,
+                        documentId,
+                        revision);
+
+                    if (workItemsResult.IsFailed)
+                    {
+                        var errorMessage = workItemsResult.Errors.First().Message;
+
+                        if (errorMessage.Contains("UnresolvableObjectException", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return $"ERROR: (1044) Document '{space}/{documentId}' not found at revision '{revision}'. " +
+                                   "Use get_document_revision_history to find valid revision numbers.";
+                        }
+
+                        return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}' at revision '{revision}'. Error: {errorMessage}";
+                    }
+
+                    allWorkItems = workItemsResult.Value
+                        .Where(wi => wi?.WorkItem != null)
+                        .Select(wi => wi.WorkItem)
+                        .ToArray();
+                }
                 if (allWorkItems is null || allWorkItems.Length == 0)
                 {
                     return $"No work items found in module '{space}/{documentId}'.";
@@ -180,7 +212,9 @@ public sealed partial class McpTools
             return true;
         }
 
-        // Prefix match - must be followed by a dot to avoid matching "6.10" when looking for "6.1"
-        return outlineNumber.StartsWith(sectionPrefix + ".", StringComparison.OrdinalIgnoreCase);
+        // Prefix match - must be followed by a dot or dash to avoid matching "6.10" when looking for "6.1"
+        // Dot separates sub-sections (e.g., 6.1.2), dash separates work items within a section (e.g., 6.1.2-1)
+        return outlineNumber.StartsWith(sectionPrefix + ".", StringComparison.OrdinalIgnoreCase)
+            || outlineNumber.StartsWith(sectionPrefix + "-", StringComparison.OrdinalIgnoreCase);
     }
 }
