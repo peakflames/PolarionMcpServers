@@ -8,7 +8,7 @@ public sealed partial class McpTools
                  "Returns revision IDs with metadata showing when the document was modified. " +
                  "Use these revision IDs with get_workitems_in_module, get_document_section, or search_in_document.")]
     public async Task<string> GetDocumentRevisionHistory(
-        [Description("The Polarion space name (e.g., 'FCC_L4_Air8_1').")]
+        [Description("The Polarion space name (e.g., 'MySpace').")]
         string space,
 
         [Description("The document ID within the space.")]

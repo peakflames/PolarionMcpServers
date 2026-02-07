@@ -152,7 +152,7 @@ public sealed partial class McpTools
     {
         var trimmed = searchQuery.Trim();
 
-        // Exact phrase: "rigging timeout"
+        // Exact phrase: "voltage regulator"
         if (trimmed.StartsWith('"') && trimmed.EndsWith('"') && trimmed.Length > 2)
         {
             return trimmed;

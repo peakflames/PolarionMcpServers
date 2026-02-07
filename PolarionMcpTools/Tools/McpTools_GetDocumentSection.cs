@@ -7,10 +7,10 @@ public sealed partial class McpTools
      Description("Gets content for a specific section heading and its sub-headings in a Polarion Document. " +
                  "Returns all work items within the specified section number prefix.")]
     public async Task<string> GetDocumentSection(
-        [Description("The Polarion space name (e.g., 'FCC_L4_Air8_1').")]
+        [Description("The Polarion space name (e.g., 'MySpace').")]
         string space,
 
-        [Description("The document ID within the space (e.g., 'FCC_L4_Requirements').")]
+        [Description("The document ID within the space (e.g., 'MyDocument').")]
         string documentId,
 
         [Description("Section number (e.g., '1' or '3.4.5'). Returns the entire section including sub-sections like 3.4.5.1, 3.4.5.2, etc.")]

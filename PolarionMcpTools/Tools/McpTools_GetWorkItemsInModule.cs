@@ -11,7 +11,7 @@ public sealed partial class McpTools
          "Supports querying historical document revisions using the revision parameter."
      )]
     public async Task<string> GetWorkItemsInModule(
-        [Description("The Polarion space name (e.g., 'FCC_L4_Air8_1').")]
+        [Description("The Polarion space name (e.g., 'MySpace').")]
         string space,
 
         [Description("The document ID within the space.")]
