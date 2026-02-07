@@ -34,6 +34,13 @@ try:
 except ImportError:
     pass
 
+# Optional: python-dotenv for .env support
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # Load .env file if it exists
+except ImportError:
+    pass
+
 # Project configuration
 SOLUTION_PATH = "PolarionMcpServers.sln"
 PROJECT_PATH = "PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj"
@@ -311,7 +318,7 @@ async def run_mcp_command(subcommand: str, tool_name: Optional[str] = None,
         tool_name: Name of the tool to call (for 'call' subcommand)
         tool_args: JSON string of arguments for tool call
         timeout: Timeout in seconds for operations (default: 200)
-        project: Optional project alias (e.g., 'midnight-limitations').
+        project: Optional project alias.
                  If not specified, uses default endpoint which routes to default project
 
     Returns:
@@ -336,7 +343,8 @@ async def run_mcp_command(subcommand: str, tool_name: Optional[str] = None,
         print(f"Connecting to project: {project}")
     else:
         mcp_url = f"http://localhost:{DEV_PORT}/mcp"
-        print(f"Connecting to default project (midnight)")
+        default_project = get_default_project()
+        print(f"Connecting to default project ({default_project})")
     
     try:
         # Pass timeout to client constructor - this applies to all MCP operations
@@ -453,6 +461,72 @@ def run_mcp(subcommand: str, tool_name: Optional[str] = None,
     return asyncio.run(run_mcp_command(subcommand, tool_name, tool_args, timeout, project))
 
 
+def get_default_project() -> str:
+    """Get the default project from appsettings or environment.
+
+    Returns:
+        Default project alias string
+    """
+    try:
+        appsettings_path = Path("PolarionRemoteMcpServer/appsettings.Development.json")
+        if not appsettings_path.exists():
+            appsettings_path = Path("PolarionRemoteMcpServer/appsettings.json")
+
+        with open(appsettings_path, 'r') as f:
+            appsettings = json.load(f)
+
+        projects = appsettings.get('PolarionProjects', [])
+
+        # First try to find project marked as Default
+        for proj in projects:
+            if proj.get('Default', False):
+                return proj.get('ProjectUrlAlias', 'myproject')
+
+        # Fall back to environment variable
+        env_project = os.environ.get('POLARION_DEFAULT_PROJECT')
+        if env_project:
+            return env_project
+
+        # Fall back to first project
+        if projects:
+            return projects[0].get('ProjectUrlAlias', 'myproject')
+
+        return 'myproject'
+    except Exception:
+        return 'myproject'
+
+
+def get_project_aliases() -> str:
+    """Get list of project aliases from appsettings.
+
+    Returns:
+        Formatted string of project aliases with default marked
+    """
+    try:
+        appsettings_path = Path("PolarionRemoteMcpServer/appsettings.Development.json")
+        if not appsettings_path.exists():
+            appsettings_path = Path("PolarionRemoteMcpServer/appsettings.json")
+
+        with open(appsettings_path, 'r') as f:
+            appsettings = json.load(f)
+
+        projects = appsettings.get('PolarionProjects', [])
+        default_project = get_default_project()
+
+        aliases = []
+        for proj in projects:
+            alias = proj.get('ProjectUrlAlias', '')
+            if alias:
+                if alias == default_project:
+                    aliases.append(f"{alias} (default)")
+                else:
+                    aliases.append(alias)
+
+        return ", ".join(aliases) if aliases else "configured in appsettings.json"
+    except Exception:
+        return "configured in appsettings.json"
+
+
 def run_rest(method: str, path: str, query_params: dict, project_alias: Optional[str] = None,
              output_format: str = "pretty") -> int:
     """Execute REST API calls with automatic auth and project translation.
@@ -461,7 +535,7 @@ def run_rest(method: str, path: str, query_params: dict, project_alias: Optional
         method: HTTP method (GET, POST, etc.)
         path: REST API path (can use {project} placeholder)
         query_params: Dictionary of query parameters
-        project_alias: Optional project alias (defaults to 'midnight')
+        project_alias: Optional project alias (defaults to value from get_default_project())
         output_format: Output format ('pretty' or 'raw')
 
     Returns:
@@ -499,7 +573,7 @@ def run_rest(method: str, path: str, query_params: dict, project_alias: Optional
         return 1
 
     # Translate project alias to SessionConfig.ProjectId if {project} is in path
-    project_alias = project_alias or "midnight"
+    project_alias = project_alias or get_default_project()
     if "{project}" in path:
         # Find project config by alias
         project_id = None
@@ -597,17 +671,19 @@ def print_usage() -> None:
     print("")
     print("REST API Commands:")
     print("  rest <method> <path> [options]            - Call REST API endpoints")
-    print("    --project <alias>    - Project to use (default: midnight)")
+    default_project = get_default_project()
+    print(f"    --project <alias>    - Project to use (default: {default_project})")
     print("    --query <text>       - Search query")
     print("    --types <types>      - Comma-separated work item types")
     print("    --status <status>    - Comma-separated status values")
     print("    --sort <field>       - Sort field")
     print("    --page-size <n>      - Results per page")
     print("    --limit <n>          - Limit results")
+    print("    --revision <n>       - Document revision number")
     print("    --format <fmt>       - Output format: pretty (default) or raw")
     print("")
-    print("  Project aliases: midnight (default), midnight-limitations, product-lifecycle,")
-    print("                   midnight-flight-test, blue-thunder, midnight-1-0, midnight-1-1")
+    project_aliases = get_project_aliases()
+    print(f"  Project aliases: {project_aliases}")
     print("")
     print("Log Commands:")
     print("  log                      - Show last 50 lines of log")
@@ -625,9 +701,9 @@ def print_usage() -> None:
     print("  python build.py start                       # Build and start server")
     print("  python build.py mcp tools                   # List all MCP tools (default project)")
     print("  python build.py rest GET api/health         # Check API health")
-    print('  python build.py rest GET "polarion/rest/v1/projects/{project}/workitems" --query rigging --project midnight')
-    print('  python build.py rest GET "polarion/rest/v1/projects/{project}/workitems/MD-12345" --project midnight')
-    print('  python build.py rest GET "polarion/rest/v1/projects/{project}/spaces" --project midnight')
+    print('  python build.py rest GET "polarion/rest/v1/projects/{project}/workitems" --query "search term" --project <alias>')
+    print('  python build.py rest GET "polarion/rest/v1/projects/{project}/workitems/WI-12345" --project <alias>')
+    print('  python build.py rest GET "polarion/rest/v1/projects/{project}/spaces" --project <alias>')
     print("  python build.py log --level error           # View error logs")
     print("  python build.py stop                        # Stop the server")
 
@@ -716,7 +792,7 @@ def main() -> None:
         if len(sys.argv) < 4:
             print("Error: rest requires method and path")
             print("Usage: python build.py rest <method> <path> [options]")
-            print('Example: python build.py rest GET "polarion/rest/v1/projects/{project}/workitems" --query rigging')
+            print('Example: python build.py rest GET "polarion/rest/v1/projects/{project}/workitems" --query "search term"')
             sys.exit(1)
 
         method = sys.argv[2].upper()

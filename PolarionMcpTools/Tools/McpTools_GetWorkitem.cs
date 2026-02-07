@@ -6,7 +6,7 @@ public sealed partial class McpTools
     [McpServerTool(Name = "get_workitem"),
      Description("Gets the text content of a WorkItem. Optionally retrieves a specific revision.")]
     public async Task<string> GetWorkitem(
-        [Description("The WorkItem ID (e.g., 'MD-12345').")] string workitemId,
+        [Description("The WorkItem ID (e.g., 'WI-12345').")] string workitemId,
         [Description("Optional revision ID. Use '-1' or omit for latest revision.")] string? revision = null)
     {
         // Input validation

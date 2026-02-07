@@ -30,26 +30,26 @@ python build.py mcp call <tool> '{"arg": "value"}' [--project <alias>]  # Call a
 
 **MCP Examples:**
 ```bash
-# Default project (midnight)
-python build.py mcp call search_workitems '{"searchQuery": "rigging", "maxResults": 10}'
+# Default project
+python build.py mcp call search_workitems '{"searchQuery": "timeout", "maxResults": 10}'
 
 # Specific project
-python build.py mcp call search_workitems '{"searchQuery": "advisory", "itemTypes": "advisory"}' --project midnight-limitations
-python build.py mcp tools --project midnight-limitations
+python build.py mcp call search_workitems '{"searchQuery": "requirement", "itemTypes": "requirement"}' --project myproject-ext
+python build.py mcp tools --project myproject-ext
 
 # Query current work items in module
-python build.py mcp call get_workitems_in_module '{"space": "L1 - Aircraft", "documentId": "l1_aircraft_requirements"}'
+python build.py mcp call get_workitems_in_module '{"space": "MySpace", "documentId": "my_requirements_doc"}'
 
 # Query work items at specific document revision
-python build.py mcp call get_workitems_in_module '{"space": "L1 - Aircraft", "documentId": "l1_aircraft_requirements", "revision": "618111"}'
+python build.py mcp call get_workitems_in_module '{"space": "MySpace", "documentId": "my_requirements_doc", "revision": "12345"}'
 
 # With type filtering (current revision only)
-python build.py mcp call get_workitems_in_module '{"space": "L1 - Aircraft", "documentId": "l1_aircraft_requirements", "itemTypes": "aircraftRequirement"}'
+python build.py mcp call get_workitems_in_module '{"space": "MySpace", "documentId": "my_requirements_doc", "itemTypes": "requirement"}'
 ```
 
-**Available project aliases:** midnight (default), midnight-limitations, product-lifecycle, midnight-flight-test, blue-thunder, midnight-1-0, midnight-1-1
+**Available project aliases:** Configured in `appsettings.json` PolarionProjects array, overridden by `appsettings.Development.json` when running locally (default from appsettings or POLARION_DEFAULT_PROJECT env var)
 
-**Note:** Use double quotes for JSON argument keys/values on Windows. If tools error with authentication failures, check that credentials are configured in `PolarionRemoteMcpServer/appsettings.json`.
+**Note:** Use double quotes for JSON argument keys/values on Windows. If tools error with authentication failures, check that credentials are configured in `PolarionRemoteMcpServer/appsettings.Development.json` (or `appsettings.json` for production).
 
 ### REST API Commands
 
@@ -59,7 +59,7 @@ python build.py rest <method> <path> [options]
 
 **REST Options:**
 
-- `--project <alias>` - Project to use (default: midnight). Use `{project}` placeholder in path
+- `--project <alias>` - Project to use (default: from appsettings or POLARION_DEFAULT_PROJECT env var). Use `{project}` placeholder in path
 - `--query <text>` - Search query
 - `--types <types>` - Comma-separated work item types
 - `--status <status>` - Comma-separated status values
@@ -76,26 +76,26 @@ python build.py rest <method> <path> [options]
 python build.py rest GET api/health
 
 # Search work items (new endpoint)
-python build.py rest GET "polarion/rest/v1/projects/{project}/workitems" --query rigging --project midnight
-python build.py rest GET "polarion/rest/v1/projects/{project}/workitems" --query advisory --types advisory,limitation --page-size 10 --project midnight-limitations
+python build.py rest GET "polarion/rest/v1/projects/{project}/workitems" --query timeout --project myproject
+python build.py rest GET "polarion/rest/v1/projects/{project}/workitems" --query requirement --types requirement,testCase --page-size 10 --project myproject-ext
 
 # Get specific work item
-python build.py rest GET "polarion/rest/v1/projects/{project}/workitems/MD-12345" --project midnight
+python build.py rest GET "polarion/rest/v1/projects/{project}/workitems/WI-12345" --project myproject
 
 # Get work item revisions
-python build.py rest GET "polarion/rest/v1/projects/{project}/workitems/MD-12345/revisions" --limit 5 --project midnight
+python build.py rest GET "polarion/rest/v1/projects/{project}/workitems/WI-12345/revisions" --limit 5 --project myproject
 
 # List spaces
-python build.py rest GET "polarion/rest/v1/projects/{project}/spaces" --project midnight
+python build.py rest GET "polarion/rest/v1/projects/{project}/spaces" --project myproject
 
 # List documents in space
-python build.py rest GET "polarion/rest/v1/projects/{project}/spaces/FCC_L4/documents" --project midnight
+python build.py rest GET "polarion/rest/v1/projects/{project}/spaces/MySpace/documents" --project myproject
 
 # Get work items in document (current revision)
-python build.py rest GET "polarion/rest/v1/projects/{project}/spaces/FCC_L4/documents/FCC_L4_Requirements/workitems" --project midnight
+python build.py rest GET "polarion/rest/v1/projects/{project}/spaces/MySpace/documents/MyDocument/workitems" --project myproject
 
 # Get work items in document at specific revision
-python build.py rest GET "polarion/rest/v1/projects/{project}/spaces/L1 - Aircraft/documents/l1_aircraft_requirements/workitems" --revision 618111 --project midnight
+python build.py rest GET "polarion/rest/v1/projects/{project}/spaces/MySpace/documents/my_requirements_doc/workitems" --revision 12345 --project myproject
 ```
 
 **Key Features:**
@@ -168,10 +168,13 @@ python build.py stop                            # Stop when done (optional)
 
 ## Adding New Configuration
 
+**Important:** Available Polarion projects and work item types are defined in `appsettings.json` but are overridden with values from `appsettings.Development.json` when running in Development mode. The Development configuration file takes precedence over the base configuration file.
+
 1. **Update appsettings.json**:
    - Add new configuration properties to the appropriate section in `PolarionRemoteMcpServer/appsettings.json`
    - For new Polarion projects, add them to the `PolarionProjects` array
    - Include any necessary filters (e.g., `Spaces`) for the project
+   - Note: When running locally with `python build.py start`, `appsettings.Development.json` will override these settings
 
 2. **Update PolarionProjectConfig**:
    - If adding new configuration properties, update the `PolarionProjectConfig` class in `PolarionMcpTools/PolarionProjectConfig.cs`
@@ -268,8 +271,8 @@ python build.py stop                            # Stop when done (optional)
 
    **Query syntax rules:**
    - Wrap field values containing spaces in double quotes: `document.title:"My Document"`
-   - Use AND/OR for boolean logic: `rigging AND timeout`
-   - Use quotes for phrase search: `"rigging timeout"` (exact phrase)
+   - Use AND/OR for boolean logic: `voltage AND sensor`
+   - Use quotes for phrase search: `"voltage regulator"` (exact phrase)
    - Parentheses for grouping: `(type:testCase OR type:testStep) AND document.title:"..."`
    - Leading wildcards (`*term`) are NOT supported and will cause parse errors
 

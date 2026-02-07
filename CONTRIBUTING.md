@@ -12,6 +12,13 @@ This guide is for developers who want to contribute to or build the Polarion MCP
 
 - .NET 9.0 SDK or later
 - Docker (for container deployment)
+- Python 3.x with `psutil` and `fastmcp` packages (for build automation)
+
+## Configuration
+
+- Copy `.env.example` to `.env` and set `POLARION_DEFAULT_PROJECT` to your default project alias
+- Configure Polarion projects in `appsettings.json` (base configuration)
+- Override settings locally using `appsettings.Development.json` (gitignored, takes precedence in Development mode)
 
 ## Building the Projects
 

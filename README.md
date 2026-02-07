@@ -128,7 +128,12 @@ MCP Tools are available for Polarion work items, including:
    - Health Check: `http://{{your-server-ip}}:8080/api/health`
 3. 📢IMPORTANT - Do NOT run with replica instances of the server as the session connection will not be shared between replicas.
 
-### Configuration Options (`appsettings.json`)
+### Configuration Options
+
+**Configuration Files:**
+- `appsettings.json` - Base configuration for production/server deployments
+- `appsettings.Development.json` - Overrides base settings for local development (gitignored, takes precedence in Development mode)
+- `.env` - Optional environment variables (copy from `.env.example`), can set `POLARION_DEFAULT_PROJECT`
 
 The server uses a `PolarionProjects` array in `appsettings.json` to define one or more Polarion instance configurations. Each object in the array represents a distinct configuration accessible via a unique URL alias.
 
