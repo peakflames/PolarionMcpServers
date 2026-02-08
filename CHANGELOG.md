@@ -1,8 +1,12 @@
 # Changelog
 
-## 0.12.0 (In Development)
+## 0.13.0 (In Development)
 
-## Added
+Changes TBD
+
+## 0.12.0
+
+### Added
 
 - Add `search_workitems` MCP tool for project-wide work item search
   - Search across entire Polarion project without requiring document IDs, space names, or work item IDs
