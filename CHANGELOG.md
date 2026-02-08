@@ -2,7 +2,50 @@
 
 ## 0.14.0 (In Development)
 
-Changes TBD
+- PLACEHOLDER
+
+## 0.13.0
+
+### Fixed
+
+- Fix `get_document_section` to correctly match dash-separated work items (e.g., 7.1.2-1) within sections, not just dot-separated sub-sections
+- Fix revision parameter in `get_document_section` and `search_in_document` tools - now properly uses revision-aware API paths instead of silently ignoring the parameter
+  - Uses `GetWorkItemsByModuleRevisionAsync` for historical revisions with proper `UnresolvableObjectException` handling
+
+### Added
+
+- Add optional `revision` parameter to `get_workitems_in_module` MCP tool
+  - Defaults to "-1" for latest revision (maintains backward compatibility)
+  - Historical queries show revision metadata, historical/current counts, and revision status
+  - Current queries maintain existing format
+  - Type filtering only supported for current revision
+  - Follows established pattern from `get_document_section` and `search_in_document` tools
+- Add revision support to REST API document workitems endpoint: `GET /polarion/rest/v1/projects/{projectId}/spaces/{spaceId}/documents/{documentId}/workitems`
+  - Add optional revision metadata fields to `WorkItemAttributes` (revision, headRevision, isHistorical)
+  - Add revision summary statistics to response meta (historicalItemCount, currentItemCount)
+  - Add `--revision` flag to `build.py rest` command for CLI support
+  - Type filtering only supported for current queries; historical queries ignore types parameter with warning
+  - Maintains full backward compatibility for existing API consumers
+
+### Changed
+
+- Improve `build.py` MCP command timeout and error reporting for better debugging experience
+
+### Deprecated
+
+- Deprecate `get_workitems_in_branched_document` MCP tool
+  - Now delegates to unified `get_workitems_in_module` with revision parameter
+  - Shows deprecation warning when called
+  - Will be removed in future version - use `get_workitems_in_module` with `revision` parameter instead
+
+### Removed
+
+- Remove `get_workitems_in_branched_document` from tool registry (tool still callable but deprecated, delegates to `get_workitems_in_module`)
+
+### Documentation
+
+- Update `get_document_revision_history` description to reference current tool names
+- Update CLAUDE.md with examples of revision parameter usage for MCP and REST API
 
 ## 0.13.0
 
