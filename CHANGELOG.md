@@ -1,8 +1,14 @@
 # Changelog
 
-## 0.13.0 (In Development)
+## 0.14.0 (In Development)
 
 Changes TBD
+
+## 0.13.0
+
+### Fixed
+
+- Fixed build warnings: CS8629 nullable value access and IL2026 reflection warnings in SearchWorkitems tool
 
 ## 0.12.0
 
