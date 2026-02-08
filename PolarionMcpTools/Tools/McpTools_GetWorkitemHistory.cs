@@ -6,7 +6,7 @@ public sealed partial class McpTools
     [McpServerTool(Name = "get_workitem_history"),
      Description("Gets the revision history for a WorkItem including content at each revision. Returns detailed information including title, status, and description for each revision.")]
     public async Task<string> GetWorkitemHistory(
-        [Description("The WorkItem ID (e.g., 'MD-12345').")] string workitemId,
+        [Description("The WorkItem ID (e.g., 'WI-12345').")] string workitemId,
         [Description("Maximum number of revisions to return. Use -1 for all revisions.")] int limit = 5)
     {
         // Input validation

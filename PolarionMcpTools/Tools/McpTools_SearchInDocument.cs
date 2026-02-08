@@ -10,15 +10,15 @@ public sealed partial class McpTools
                  "Returns matching Requirements, Test Cases, and Test Procedures as Markdown. " +
                  "The search is performed across title and description fields.")]
     public async Task<string> SearchInDocument(
-        [Description("The Polarion space name (e.g., 'FCC_L4_Air8_1').")]
+        [Description("The Polarion space name (e.g., 'MySpace').")]
         string space,
 
-        [Description("The document ID within the space (e.g., 'FCC_L4_Requirements').")]
+        [Description("The document ID within the space (e.g., 'MyDocument').")]
         string documentId,
 
         [Description("Search terms. " +
-                     "Examples: 'timeout' (single term), 'rigging timeout' (either term - OR logic), " +
-                     "'rigging AND timeout' (both terms required), '\"rigging timeout\"' (exact phrase).")]
+                     "Examples: 'timeout' (single term), 'voltage sensor' (either term - OR logic), " +
+                     "'voltage AND sensor' (both terms required), '\"voltage regulator\"' (exact phrase).")]
         string searchQuery,
 
         [Description("Document revision number. Use '-1' for latest revision.")]
@@ -52,18 +52,50 @@ public sealed partial class McpTools
 
             try
             {
-                // Get all work items from the module using SQL relationship query
-                var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(
-                    space,
-                    documentId,
-                    null); // Get all types
+                // Get all work items from the module, using revision-aware API when needed
+                WorkItem[] allWorkItems;
 
-                if (workItemsResult.IsFailed)
+                if (revision == "-1")
                 {
-                    return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}'. Error: {workItemsResult.Errors.First().Message}";
-                }
+                    // Latest revision - use standard query
+                    var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(
+                        space,
+                        documentId,
+                        null); // Get all types
 
-                var allWorkItems = workItemsResult.Value;
+                    if (workItemsResult.IsFailed)
+                    {
+                        return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}'. Error: {workItemsResult.Errors.First().Message}";
+                    }
+
+                    allWorkItems = workItemsResult.Value;
+                }
+                else
+                {
+                    // Specific revision - use baseline revision API
+                    var workItemsResult = await polarionClient.GetWorkItemsByModuleRevisionAsync(
+                        space,
+                        documentId,
+                        revision);
+
+                    if (workItemsResult.IsFailed)
+                    {
+                        var errorMessage = workItemsResult.Errors.First().Message;
+
+                        if (errorMessage.Contains("UnresolvableObjectException", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return $"ERROR: (1044) Document '{space}/{documentId}' not found at revision '{revision}'. " +
+                                   "Use get_document_revision_history to find valid revision numbers.";
+                        }
+
+                        return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}' at revision '{revision}'. Error: {errorMessage}";
+                    }
+
+                    allWorkItems = workItemsResult.Value
+                        .Where(wi => wi?.WorkItem != null)
+                        .Select(wi => wi.WorkItem)
+                        .ToArray();
+                }
                 if (allWorkItems is null || allWorkItems.Length == 0)
                 {
                     return $"No work items found in module '{space}/{documentId}'.";
@@ -130,9 +162,9 @@ public sealed partial class McpTools
     /// <summary>
     /// Parses a search query into a matcher function that supports:
     /// - Single terms: "timeout" matches if term is found
-    /// - Multiple terms (OR): "rigging timeout" matches if ANY term is found
-    /// - AND operator: "rigging AND timeout" matches if ALL terms are found
-    /// - Exact phrases: "\"rigging timeout\"" matches the exact phrase
+    /// - Multiple terms (OR): "voltage sensor" matches if ANY term is found
+    /// - AND operator: "voltage AND sensor" matches if ALL terms are found
+    /// - Exact phrases: "\"voltage regulator\"" matches the exact phrase
     /// </summary>
     private static SearchMatcher ParseSearchQuery(string query)
     {
