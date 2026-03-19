@@ -53,6 +53,8 @@ python build.py mcp call get_workitems_in_module '{"space": "MySpace", "document
 
 ### REST API Commands
 
+The REST API is designed to align with the **official Polarion REST API** specification found at `https://testdrive.polarion.com/polarion/rest/v1/definition`. A local copy of this definition is maintained at `docs/polarion-rest-vq-definition.json` for reference when implementing or extending endpoints.
+
 ```bash
 python build.py rest <method> <path> [options]
 ```
@@ -84,6 +86,12 @@ python build.py rest GET "polarion/rest/v1/projects/{project}/workitems/WI-12345
 
 # Get work item revisions
 python build.py rest GET "polarion/rest/v1/projects/{project}/workitems/WI-12345/revisions" --limit 5 --project myproject
+
+# Get outgoing linked work items
+python build.py rest GET "polarion/rest/v1/projects/{project}/workitems/WI-12345/linkedworkitems" --project myproject
+
+# Get incoming (back-linked) work items
+python build.py rest GET "polarion/rest/v1/projects/{project}/workitems/WI-12345/backlinkedworkitems" --project myproject
 
 # List spaces
 python build.py rest GET "polarion/rest/v1/projects/{project}/spaces" --project myproject

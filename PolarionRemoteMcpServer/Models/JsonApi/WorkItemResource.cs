@@ -98,6 +98,40 @@ public class WorkItemRevisionResource : JsonApiResource
 }
 
 /// <summary>
+/// JSON:API resource representing a linked work item relationship,
+/// aligned with the Polarion REST API linkedworkitems schema.
+/// </summary>
+public class LinkedWorkItemResource : JsonApiResource
+{
+    public LinkedWorkItemResource()
+    {
+        Type = "linkedworkitems";
+    }
+
+    [JsonPropertyName("attributes")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public new LinkedWorkItemAttributes? Attributes { get; set; }
+}
+
+/// <summary>
+/// Attributes for a linked work item resource.
+/// id format: "ProjectId/SourceWorkItemId/role/ProjectId/LinkedWorkItemId"
+/// </summary>
+public class LinkedWorkItemAttributes
+{
+    [JsonPropertyName("role")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Role { get; set; }
+
+    [JsonPropertyName("suspect")]
+    public bool Suspect { get; set; }
+
+    [JsonPropertyName("workItemId")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? WorkItemId { get; set; }
+}
+
+/// <summary>
 /// Attributes for a WorkItem revision resource.
 /// </summary>
 public class WorkItemRevisionAttributes
