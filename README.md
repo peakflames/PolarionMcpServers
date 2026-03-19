@@ -162,6 +162,10 @@ The server uses a `PolarionProjects` array in `appsettings.json` to define one o
 
 *Note: It is strongly recommended to use more secure methods for storing credentials (like User Secrets, Azure Key Vault, etc.) rather than placing plain text passwords in `appsettings.json`.*
 
+### REST API Specification Alignment
+
+The REST API is designed to align with the **official Polarion REST API** specification available at `https://testdrive.polarion.com/polarion/rest/v1/definition`. A local copy of this definition is maintained at `docs/polarion-rest-vq-definition.json` for reference when implementing or extending endpoints.
+
 ### API Key Authentication (REST API Only)
 
 REST API endpoints require authentication via API key. Configure API consumers in the `ApiConsumers` section of `appsettings.json`:

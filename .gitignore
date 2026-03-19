@@ -488,3 +488,5 @@ dist/
 tmp/
 .polarion-mcp.pid
 .claude/settings.local.json
+PolarionMcpServer/appsettings.Development.json
+PolarionRemoteMcpServer/appsettings.Development.json

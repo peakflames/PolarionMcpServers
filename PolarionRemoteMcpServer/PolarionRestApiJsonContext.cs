@@ -25,11 +25,15 @@ namespace PolarionRemoteMcpServer;
 [JsonSerializable(typeof(WorkItemRevisionResource))]
 [JsonSerializable(typeof(WorkItemRevisionAttributes))]
 [JsonSerializable(typeof(WorkItemSearchMeta))]
+[JsonSerializable(typeof(LinkedWorkItemResource))]
+[JsonSerializable(typeof(LinkedWorkItemAttributes))]
 [JsonSerializable(typeof(List<WorkItemResource>))]
 [JsonSerializable(typeof(List<WorkItemRevisionResource>))]
+[JsonSerializable(typeof(List<LinkedWorkItemResource>))]
 [JsonSerializable(typeof(JsonApiDocument<WorkItemResource>))]
 [JsonSerializable(typeof(JsonApiDocument<List<WorkItemResource>>))]
 [JsonSerializable(typeof(JsonApiDocument<List<WorkItemRevisionResource>>))]
+[JsonSerializable(typeof(JsonApiDocument<List<LinkedWorkItemResource>>))]
 
 // Document types
 [JsonSerializable(typeof(DocumentResource))]

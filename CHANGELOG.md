@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.14.0 (In Development)
+
+### Added
+
+- Add linked work item REST endpoints:
+  - `GET /polarion/rest/v1/projects/{projectId}/workitems/{workItemId}/linkedworkitems` — outgoing links (items this WI links TO)
+  - `GET /polarion/rest/v1/projects/{projectId}/workitems/{workItemId}/backlinkedworkitems` — incoming links (items that link TO this WI)
+  - Returns JSON:API document with `linkedworkitems` type resources containing `role`, `suspect`, and `workItemId` attributes
+  - Filters out internal `subsection_of` Polarion document structure links
+  - Returns empty array (not error) when no links exist
+
 ## 0.13.0
 
 ### Fixed
@@ -42,6 +53,12 @@
 
 - Update `get_document_revision_history` description to reference current tool names
 - Update CLAUDE.md with examples of revision parameter usage for MCP and REST API
+
+## 0.13.0
+
+### Fixed
+
+- Fixed build warnings: CS8629 nullable value access and IL2026 reflection warnings in SearchWorkitems tool
 
 ## 0.12.0
 
