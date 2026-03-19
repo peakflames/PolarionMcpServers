@@ -31,6 +31,10 @@ public static class WorkItemsEndpoints
             .RequireAuthorization(ApiScopes.PolarionRead);
         group.MapGet("/workitems/{workitemId}/revisions", GetWorkItemRevisions)
             .RequireAuthorization(ApiScopes.PolarionRead);
+        group.MapGet("/workitems/{workitemId}/linkedworkitems", GetLinkedWorkItems)
+            .RequireAuthorization(ApiScopes.PolarionRead);
+        group.MapGet("/workitems/{workitemId}/backlinkedworkitems", GetBackLinkedWorkItems)
+            .RequireAuthorization(ApiScopes.PolarionRead);
     }
 
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
@@ -223,6 +227,190 @@ public static class WorkItemsEndpoints
         catch (Exception ex)
         {
             Log.Error(ex, "REST API: Exception getting revisions for work item {WorkitemId}", workitemId);
+            return CreateErrorResponse("500", "Internal Server Error", ex.Message);
+        }
+    }
+
+    [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
+    private static async Task<IResult> GetLinkedWorkItems(
+        string projectId,
+        string workitemId,
+        RestApiProjectResolver projectResolver)
+    {
+        Log.Debug("REST API: GetLinkedWorkItems called for project={ProjectId}, workitemId={WorkitemId}",
+            projectId, workitemId);
+
+        if (string.IsNullOrWhiteSpace(workitemId))
+        {
+            return CreateErrorResponse("400", "Bad Request", "workitemId parameter cannot be empty.");
+        }
+
+        var projectConfig = projectResolver.GetProjectConfig(projectId);
+        if (projectConfig == null)
+        {
+            return CreateNotFoundResponse(projectId, projectResolver.GetConfiguredProjectIds());
+        }
+
+        var clientResult = await projectResolver.CreateClientAsync(projectId);
+        if (clientResult.IsFailed)
+        {
+            var errorMsg = clientResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";
+            Log.Error("REST API: Failed to create Polarion client: {Error}", errorMsg);
+            return CreateErrorResponse("500", "Internal Server Error", errorMsg);
+        }
+
+        var polarionClient = clientResult.Value;
+
+        try
+        {
+            var workItemResult = await polarionClient.GetWorkItemByIdAsync(workitemId);
+            if (workItemResult.IsFailed)
+            {
+                var errorMsg = workItemResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";
+                Log.Warning("REST API: Failed to get work item {WorkitemId}: {Error}", workitemId, errorMsg);
+                return CreateErrorResponse("404", "Not Found", $"WorkItem '{workitemId}' not found: {errorMsg}");
+            }
+
+            var workItem = workItemResult.Value;
+            if (workItem == null)
+            {
+                return CreateErrorResponse("404", "Not Found", $"WorkItem '{workitemId}' not found.");
+            }
+
+            var resources = new List<LinkedWorkItemResource>();
+
+            if (workItem.linkedWorkItems != null)
+            {
+                foreach (var linked in workItem.linkedWorkItems)
+                {
+                    var role = linked.role?.id;
+                    if (role == null || role == "subsection_of") continue;
+                    var linkedId = linked.workItemURI.Split("${WorkItem}")[1];
+
+                    resources.Add(new LinkedWorkItemResource
+                    {
+                        Id = $"{projectId}/{workitemId}/{role}/{projectId}/{linkedId}",
+                        Attributes = new LinkedWorkItemAttributes
+                        {
+                            Role = role,
+                            Suspect = linked.suspect,
+                            WorkItemId = linkedId
+                        },
+                        Links = new JsonApiLinks
+                        {
+                            Self = $"/polarion/rest/v1/projects/{projectId}/workitems/{linkedId}"
+                        }
+                    });
+                }
+            }
+
+            var response = new JsonApiDocument<List<LinkedWorkItemResource>>
+            {
+                Data = resources,
+                Links = new JsonApiLinks
+                {
+                    Self = $"/polarion/rest/v1/projects/{projectId}/workitems/{workitemId}/linkedworkitems"
+                },
+                Meta = new JsonApiMeta { Count = resources.Count }
+            };
+
+            return Results.Json(response, PolarionRestApiJsonContext.Default.JsonApiDocumentListLinkedWorkItemResource);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "REST API: Exception getting linked work items for {WorkitemId}", workitemId);
+            return CreateErrorResponse("500", "Internal Server Error", ex.Message);
+        }
+    }
+
+    [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
+    private static async Task<IResult> GetBackLinkedWorkItems(
+        string projectId,
+        string workitemId,
+        RestApiProjectResolver projectResolver)
+    {
+        Log.Debug("REST API: GetBackLinkedWorkItems called for project={ProjectId}, workitemId={WorkitemId}",
+            projectId, workitemId);
+
+        if (string.IsNullOrWhiteSpace(workitemId))
+        {
+            return CreateErrorResponse("400", "Bad Request", "workitemId parameter cannot be empty.");
+        }
+
+        var projectConfig = projectResolver.GetProjectConfig(projectId);
+        if (projectConfig == null)
+        {
+            return CreateNotFoundResponse(projectId, projectResolver.GetConfiguredProjectIds());
+        }
+
+        var clientResult = await projectResolver.CreateClientAsync(projectId);
+        if (clientResult.IsFailed)
+        {
+            var errorMsg = clientResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";
+            Log.Error("REST API: Failed to create Polarion client: {Error}", errorMsg);
+            return CreateErrorResponse("500", "Internal Server Error", errorMsg);
+        }
+
+        var polarionClient = clientResult.Value;
+
+        try
+        {
+            var workItemResult = await polarionClient.GetWorkItemByIdAsync(workitemId);
+            if (workItemResult.IsFailed)
+            {
+                var errorMsg = workItemResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";
+                Log.Warning("REST API: Failed to get work item {WorkitemId}: {Error}", workitemId, errorMsg);
+                return CreateErrorResponse("404", "Not Found", $"WorkItem '{workitemId}' not found: {errorMsg}");
+            }
+
+            var workItem = workItemResult.Value;
+            if (workItem == null)
+            {
+                return CreateErrorResponse("404", "Not Found", $"WorkItem '{workitemId}' not found.");
+            }
+
+            var resources = new List<LinkedWorkItemResource>();
+
+            if (workItem.linkedWorkItemsDerived != null)
+            {
+                foreach (var linked in workItem.linkedWorkItemsDerived)
+                {
+                    var role = linked.role?.id;
+                    if (role == null || role == "subsection_of") continue;
+                    var linkedId = linked.workItemURI.Split("${WorkItem}")[1];
+
+                    resources.Add(new LinkedWorkItemResource
+                    {
+                        Id = $"{projectId}/{linkedId}/{role}/{projectId}/{workitemId}",
+                        Attributes = new LinkedWorkItemAttributes
+                        {
+                            Role = role,
+                            Suspect = linked.suspect,
+                            WorkItemId = linkedId
+                        },
+                        Links = new JsonApiLinks
+                        {
+                            Self = $"/polarion/rest/v1/projects/{projectId}/workitems/{linkedId}"
+                        }
+                    });
+                }
+            }
+
+            var response = new JsonApiDocument<List<LinkedWorkItemResource>>
+            {
+                Data = resources,
+                Links = new JsonApiLinks
+                {
+                    Self = $"/polarion/rest/v1/projects/{projectId}/workitems/{workitemId}/backlinkedworkitems"
+                },
+                Meta = new JsonApiMeta { Count = resources.Count }
+            };
+
+            return Results.Json(response, PolarionRestApiJsonContext.Default.JsonApiDocumentListLinkedWorkItemResource);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "REST API: Exception getting back-linked work items for {WorkitemId}", workitemId);
             return CreateErrorResponse("500", "Internal Server Error", ex.Message);
         }
     }
