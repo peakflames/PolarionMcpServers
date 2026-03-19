@@ -2,7 +2,14 @@
 
 ## 0.14.0 (In Development)
 
-- PLACEHOLDER
+### Added
+
+- Add linked work item REST endpoints:
+  - `GET /polarion/rest/v1/projects/{projectId}/workitems/{workItemId}/linkedworkitems` — outgoing links (items this WI links TO)
+  - `GET /polarion/rest/v1/projects/{projectId}/workitems/{workItemId}/backlinkedworkitems` — incoming links (items that link TO this WI)
+  - Returns JSON:API document with `linkedworkitems` type resources containing `role`, `suspect`, and `workItemId` attributes
+  - Filters out internal `subsection_of` Polarion document structure links
+  - Returns empty array (not error) when no links exist
 
 ## 0.13.0
 
