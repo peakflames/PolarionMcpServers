@@ -160,7 +160,23 @@ The server uses a `PolarionProjects` array in `appsettings.json` to define one o
 | `ProjectId`    | The *actual* ID of the Polarion project to interact with.           | Yes      | N/A     |
 | `TimeoutSeconds` | Connection timeout in seconds.                                      | No       | `60`    |
 
-*Note: It is strongly recommended to use more secure methods for storing credentials (like User Secrets, Azure Key Vault, etc.) rather than placing plain text passwords in `appsettings.json`.*
+### Environment Variable Password Override
+
+Instead of placing passwords in configuration files, set the `POLARION_PASSWORD` environment variable. When set, it overrides `SessionConfig.Password` for all configured projects.
+
+**Docker example:**
+```bash
+docker run -d \
+  --name polarion-mcp-server \
+  -p 8080:8080 \
+  -e POLARION_PASSWORD=your-secret-password \
+  -v appsettings.json:/app/appsettings.json \
+  peakflames/polarion-remote-mcp-server
+```
+
+This works for both `PolarionRemoteMcpServer` (HTTP) and `PolarionMcpServer` (stdio).
+
+*Note: It is strongly recommended to use the `POLARION_PASSWORD` environment variable or more secure methods for storing credentials (like User Secrets, Azure Key Vault, etc.) rather than placing plain text passwords in `appsettings.json`.*
 
 ### REST API Specification Alignment
 

@@ -84,6 +84,21 @@ public class Program
             }
             
 
+            // Allow overriding passwords via the POLARION_PASSWORD environment variable.
+            // When set, applies to all projects as a global fallback.
+            var globalPassword = Environment.GetEnvironmentVariable("POLARION_PASSWORD");
+            if (!string.IsNullOrEmpty(globalPassword))
+            {
+                foreach (var proj in polarionProjects)
+                {
+                    if (proj?.SessionConfig != null)
+                    {
+                        proj.SessionConfig.Password = globalPassword;
+                        Log.Information("Overrode SessionConfig.Password for project '{ProjectAlias}' from env var 'POLARION_PASSWORD'", proj.ProjectUrlAlias);
+                    }
+                }
+            }
+
             // Add Serilog
             //
             builder.Services.AddSerilog();
