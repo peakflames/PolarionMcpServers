@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 using System.Reflection;
 using System.Diagnostics;
 using Microsoft.Extensions.Configuration;
@@ -185,44 +184,19 @@ public class Program
             }
             
 
-            
-            // Allow overriding passwords via environment variables.
-            // Supported env var names:
-            //  - POLARION_{ALIAS}_PASSWORD  (alias normalized to [A-Z0-9_] )
-            //  - POLARION_PASSWORD  (applies to the project marked Default)
-            try
+            // Allow overriding passwords via the POLARION_PASSWORD environment variable.
+            // When set, applies to all projects as a global fallback.
+            var globalPassword = Environment.GetEnvironmentVariable("POLARION_PASSWORD");
+            if (!string.IsNullOrEmpty(globalPassword))
             {
                 foreach (var proj in polarionProjects)
                 {
-                    if (proj == null) continue;
-                    var alias = proj.ProjectUrlAlias ?? string.Empty;
-                    // Normalize alias to upper-case letters, digits and underscores
-                    var norm = Regex.Replace(alias, "[^A-Za-z0-9]", "_").ToUpperInvariant();
-                    var envName = $"POLARION_{norm}_PASSWORD";
-                    var envVal = Environment.GetEnvironmentVariable(envName);
-                    if (string.IsNullOrEmpty(envVal) && proj.Default)
+                    if (proj?.SessionConfig != null)
                     {
-                        envVal = Environment.GetEnvironmentVariable("POLARION_PASSWORD");
-                        envName = "POLARION_PASSWORD";
-                    }
-
-                    if (!string.IsNullOrEmpty(envVal))
-                    {
-                        if (proj.SessionConfig != null)
-                        {
-                            proj.SessionConfig.Password = envVal;
-                            Log.Information("Overrode SessionConfig.Password for project '{ProjectAlias}' from env var '{EnvVarName}'", alias, envName);
-                        }
-                        else
-                        {
-                            Log.Warning("Found environment variable '{EnvVarName}' but SessionConfig is null for project '{ProjectAlias}'. Password override skipped.", envName, alias);
-                        }
+                        proj.SessionConfig.Password = globalPassword;
+                        Log.Information("Overrode SessionConfig.Password for project '{ProjectAlias}' from env var 'POLARION_PASSWORD'", proj.ProjectUrlAlias);
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                Log.Warning(ex, "Error while attempting to override Polarion passwords from environment variables.");
             }
 
             
