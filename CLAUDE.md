@@ -374,10 +374,12 @@ When working on this project as an AI assistant:
 ## ⚠️ CRITICAL: appsettings.json Security Rule
 
 **NEVER commit, add, reset, checkout, discard, or modify `PolarionRemoteMcpServer/appsettings.json` in any git operation.**
+**NEVER commit, add, reset, checkout, discard, or modify `PolarionRemoteMcpServer/appsettings.Development.json` in any git operation.**
 
 This file contains sensitive credentials (usernames, passwords, server URLs) that must be protected at all costs. The file should be treated as if it doesn't exist when performing any git operations:
 
 - ❌ NEVER use `git add PolarionRemoteMcpServer/appsettings.json`
+- ❌ NEVER use `git add PolarionRemoteMcpServer/appsettings.Development.json`
 - ❌ NEVER include it in commits
 - ❌ NEVER stage changes to this file
 - ❌ NEVER reset or checkout this file

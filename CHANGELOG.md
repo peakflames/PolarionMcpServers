@@ -1,6 +1,16 @@
 # Changelog
 
-## 0.14.0 (In Development)
+## 0.15.0 (In Development)
+
+### Added
+
+- Add `POLARION_PASSWORD` environment variable support to `PolarionRemoteMcpServer` — when set, overrides `SessionConfig.Password` for all configured projects
+
+### Changed
+
+- Simplify `POLARION_PASSWORD` env var handling in `PolarionMcpServer` (stdio) to apply as a global fallback for all projects
+
+## 0.14.0
 
 ### Added
 
