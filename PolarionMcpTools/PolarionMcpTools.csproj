@@ -8,7 +8,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Polarion" Version="0.3.4" />
+    <!-- Swap to ProjectReference for local debugging; revert to PackageReference for release -->
+    <PackageReference Include="Polarion" Version="0.3.5" />
+    <!-- <ProjectReference Include="..\..\PolarionApiClient\src\Polarion\Polarion.csproj" /> -->
     <PackageReference Include="ModelContextProtocol" Version="0.7.0-preview.1" />
     <PackageReference Include="ReverseMarkdown" Version="4.6.0" />
     <PackageReference Include="Microsoft.AspNetCore.Routing.Abstractions" Version="2.3.0" />
