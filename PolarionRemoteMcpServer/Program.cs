@@ -27,19 +27,44 @@ public class Program
     {
         try
         {
-            Log.Logger = new LoggerConfiguration()
-                            .MinimumLevel.Verbose() // Capture all log levels
-                            .WriteTo.File(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "PolarionMcpServer_.log"),
-                                rollingInterval: RollingInterval.Day,
-                                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
-                            .WriteTo.Debug()
-                            .WriteTo.Console(standardErrorFromLevel: Serilog.Events.LogEventLevel.Verbose)
-                            .CreateLogger();
-
-
-            // Create the DI container
+            // Create the DI container first so we can access environment
             //
             var builder = WebApplication.CreateBuilder(args);
+
+            // Configure Serilog based on environment
+            //
+            var logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+            var logConfig = new LoggerConfiguration().MinimumLevel.Verbose();
+
+            if (builder.Environment.EnvironmentName == "Test")
+            {
+                // Test environment: Use timestamped log files in test-runs subdirectory
+                var testLogDirectory = Path.Combine(logDirectory, "test-runs");
+                Directory.CreateDirectory(testLogDirectory);
+
+                var timestamp = DateTime.Now.ToString("yyyy-MM-dd-HHmmss");
+                var logPath = Path.Combine(testLogDirectory, $"test-run-{timestamp}.log");
+
+                logConfig
+                    .WriteTo.File(logPath,
+                        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+                    .WriteTo.Console();
+
+                // Clean up old test logs (keep last 10)
+                CleanupOldTestLogs(testLogDirectory, retainCount: 10);
+            }
+            else
+            {
+                // Development/Production: Use rolling daily logs
+                logConfig
+                    .WriteTo.File(Path.Combine(logDirectory, "PolarionMcpServer_.log"),
+                        rollingInterval: RollingInterval.Day,
+                        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+                    .WriteTo.Debug()
+                    .WriteTo.Console(standardErrorFromLevel: Serilog.Events.LogEventLevel.Verbose);
+            }
+
+            Log.Logger = logConfig.CreateLogger();
             
             // Add to support the polarion client factory access to the route data
             //
@@ -272,6 +297,44 @@ public class Program
             Log.Fatal($"Host terminated unexpectedly. Exception: {ex}");
             Console.ResetColor();
             return 1;
+        }
+    }
+
+    /// <summary>
+    /// Cleans up old test log files, keeping only the most recent N files
+    /// </summary>
+    private static void CleanupOldTestLogs(string logDirectory, int retainCount)
+    {
+        try
+        {
+            if (!Directory.Exists(logDirectory))
+            {
+                return;
+            }
+
+            var logFiles = Directory.GetFiles(logDirectory, "test-run-*.log")
+                .Select(f => new FileInfo(f))
+                .OrderByDescending(f => f.CreationTime)
+                .ToList();
+
+            // Keep the most recent files, delete the rest
+            var filesToDelete = logFiles.Skip(retainCount);
+            foreach (var file in filesToDelete)
+            {
+                try
+                {
+                    file.Delete();
+                    Log.Debug("Deleted old test log: {FileName}", file.Name);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning("Failed to delete old test log {FileName}: {Error}", file.Name, ex.Message);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning("Failed to cleanup old test logs: {Error}", ex.Message);
         }
     }
 }

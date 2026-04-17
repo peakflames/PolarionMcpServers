@@ -490,3 +490,16 @@ tmp/
 .claude/settings.local.json
 PolarionRemoteMcpServer/appsettings.Development.json
 
+# Test settings with credentials (must not be committed)
+**/testsettings.json
+
+# Verify snapshot files (contain company-sensitive Polarion data - local baseline only)
+*.received.json
+*.verified.json
+*.received.txt
+*.verified.txt
+
+# Test results
+TestResults/
+*.trx
+
