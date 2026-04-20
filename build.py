@@ -259,23 +259,117 @@ def run_dotnet_command(command: str) -> None:
         sys.exit(1)
 
 
-def search_log(pattern: Optional[str] = None, tail: int = 0, level: Optional[str] = None) -> None:
+def show_test_log_location() -> None:
+    """Display the location of the most recent test log file"""
+    try:
+        test_log_dir = Path("PolarionRemoteMcpServer.Tests/bin/Debug/net9.0/logs/test-runs")
+        if not test_log_dir.exists():
+            return
+
+        # Find the most recent test log
+        log_files = list(test_log_dir.glob("test-run-*.log"))
+        if log_files:
+            latest_log = max(log_files, key=lambda p: p.stat().st_mtime)
+            print(f"\n📋 Test server log: {latest_log}")
+            print(f"   View with: python build.py log --test-run latest")
+    except Exception:
+        pass  # Silently ignore if we can't find the log
+
+
+def run_test_command(filter_pattern: Optional[str] = None,
+                     logger: Optional[str] = None,
+                     coverage: bool = False) -> None:
+    """Run tests with dotnet test
+
+    Args:
+        filter_pattern: Optional filter for test names (e.g., 'Integration', 'Snapshot', 'Unit')
+        logger: Optional test logger (e.g., 'console;verbosity=detailed')
+        coverage: Whether to collect code coverage
+    """
+    try:
+        print("Running tests...")
+
+        test_args = ["dotnet", "test", SOLUTION_PATH, "--no-restore"]
+
+        # Add filter if specified
+        if filter_pattern:
+            test_args.extend(["--filter", filter_pattern])
+            print(f"Filter: {filter_pattern}")
+
+        # Add logger if specified
+        if logger:
+            test_args.extend(["--logger", logger])
+
+        # Add coverage if specified
+        if coverage:
+            test_args.append("--collect:XPlat Code Coverage")
+            print("Coverage collection enabled")
+
+        subprocess.run(test_args, check=True)
+        print("✓ Tests completed")
+
+        # Show location of test log file
+        show_test_log_location()
+
+    except subprocess.CalledProcessError as e:
+        print(f"Tests failed with exit code {e.returncode}")
+        show_test_log_location()
+        sys.exit(1)
+
+    except KeyboardInterrupt:
+        print("\nInterrupted by user")
+        sys.exit(0)
+
+
+def search_log(pattern: Optional[str] = None, tail: int = 0, level: Optional[str] = None, test_run: Optional[str] = None) -> None:
     """Search or tail the log file
-    
+
     Args:
         pattern: Regex pattern to search for (case-insensitive)
         tail: Number of lines to show from end (0 = all)
         level: Filter by log level (error, warn, info, debug)
+        test_run: View test run log - 'latest' or number 1-10 (1 = most recent)
     """
     import re
-    
-    if not LOG_FILE.exists():
-        print(f"Log file not found: {LOG_FILE}")
-        print("Start the application first with: python build.py start")
+
+    log_file = LOG_FILE
+
+    # Handle test run logs
+    if test_run:
+        test_log_dir = Path("PolarionRemoteMcpServer.Tests/bin/Debug/net9.0/logs/test-runs")
+        if not test_log_dir.exists():
+            print(f"Test log directory not found: {test_log_dir}")
+            print("Run tests first with: python build.py test")
+            return
+
+        log_files = sorted(test_log_dir.glob("test-run-*.log"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if not log_files:
+            print("No test run logs found")
+            return
+
+        if test_run == "latest":
+            log_file = log_files[0]
+            print(f"📋 Viewing latest test run log: {log_file.name}")
+        else:
+            try:
+                run_index = int(test_run) - 1
+                if run_index < 0 or run_index >= len(log_files):
+                    print(f"Test run {test_run} not found. Available runs: 1-{len(log_files)}")
+                    return
+                log_file = log_files[run_index]
+                print(f"📋 Viewing test run log #{test_run}: {log_file.name}")
+            except ValueError:
+                print(f"Invalid test run value: {test_run}. Use 'latest' or a number 1-10")
+                return
+
+    if not log_file.exists():
+        print(f"Log file not found: {log_file}")
+        if not test_run:
+            print("Start the application first with: python build.py start")
         return
-    
+
     try:
-        with open(LOG_FILE, 'r', encoding='utf-8', errors='replace') as f:
+        with open(log_file, 'r', encoding='utf-8', errors='replace') as f:
             lines = f.readlines()
         
         # Apply tail
@@ -662,6 +756,10 @@ def print_usage() -> None:
     print("  start        - Build and start in background (port 5090)")
     print("  stop         - Stop the background application")
     print("  status       - Check if application is running")
+    print("  test         - Run tests")
+    print("    --filter <pattern>       - Filter tests by name pattern")
+    print("    --logger <logger>        - Test logger (e.g., 'console;verbosity=detailed')")
+    print("    --coverage               - Collect code coverage")
     print("")
     print("MCP Commands (requires: pip install fastmcp psutil):")
     print("  mcp ping [--project <alias>]              - Check MCP server connectivity")
@@ -690,6 +788,7 @@ def print_usage() -> None:
     print("  log <pattern>            - Search log for regex pattern")
     print("  log --tail <n>           - Show last n lines")
     print("  log --level <level>      - Filter by level (error/warn/info/debug)")
+    print("  log --test-run <n>       - View test run log (latest or 1-10)")
     print("  log --tail 100 --level error - Combine options")
     print("")
     print("URLs (when running):")
@@ -726,7 +825,8 @@ def main() -> None:
         pattern = None
         tail = 50  # Default to last 50 lines
         level = None
-        
+        test_run = None
+
         # Parse log options
         args = sys.argv[2:]
         i = 0
@@ -741,6 +841,9 @@ def main() -> None:
             elif args[i] == "--level" and i + 1 < len(args):
                 level = args[i + 1]
                 i += 2
+            elif args[i] == "--test-run" and i + 1 < len(args):
+                test_run = args[i + 1]
+                i += 2
             elif not args[i].startswith("--"):
                 pattern = args[i]
                 i += 1
@@ -748,8 +851,8 @@ def main() -> None:
                 print(f"Unknown option: {args[i]}")
                 print_usage()
                 sys.exit(1)
-        
-        search_log(pattern=pattern, tail=tail, level=level)
+
+        search_log(pattern=pattern, tail=tail, level=level, test_run=test_run)
         return
     
     # MCP command
@@ -839,17 +942,44 @@ def main() -> None:
 
         sys.exit(run_rest(method, path, query_params, project, output_format))
 
+    # Test command
+    if command == "test":
+        filter_pattern = None
+        logger = None
+        coverage = False
+
+        # Parse test options
+        args = sys.argv[2:]
+        i = 0
+        while i < len(args):
+            if args[i] == "--filter" and i + 1 < len(args):
+                filter_pattern = args[i + 1]
+                i += 2
+            elif args[i] == "--logger" and i + 1 < len(args):
+                logger = args[i + 1]
+                i += 2
+            elif args[i] == "--coverage":
+                coverage = True
+                i += 1
+            else:
+                print(f"Unknown option: {args[i]}")
+                print_usage()
+                sys.exit(1)
+
+        run_test_command(filter_pattern, logger, coverage)
+        return
+
     # Help command
     if command in ["help", "--help", "-h"]:
         print_usage()
         return
-    
+
     # Commands that need dotnet
     if command not in ["build", "run", "start"]:
         print(f"Unknown command: {command}")
         print_usage()
         sys.exit(1)
-    
+
     # Execute command
     run_dotnet_command(command)
 
