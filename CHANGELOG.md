@@ -1,8 +1,10 @@
 # Changelog
 
-## 0.16.0 (In Development)
+## 0.16.0
 
-- PLACEHOLDER
+- Add `PolarionRemoteMcpServer.Tests` project with xUnit v3 integration and snapshot tests
+- Add `build.py test` command with `--filter` and log viewing support
+- Bump `PolarionApiClient` package dependency to 0.3.6
 
 ## 0.15.0
 
