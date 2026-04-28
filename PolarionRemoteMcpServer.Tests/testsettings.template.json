@@ -1,0 +1,73 @@
+{
+  "TestSettings": {
+    "ApiBaseUrl": "http://localhost:5090",
+    "ApiKey": "YOUR_API_KEY_HERE",
+    "TestProjects": [
+      {
+        "ProjectId": "YourProjectId",
+        "ServerUrl": "https://your-polarion-server.com",
+        "Username": "YOUR_USERNAME",
+        "Password": "YOUR_PASSWORD"
+      },
+      {
+        "ProjectId": "YourBranchedProjectId",
+        "ServerUrl": "https://your-polarion-server.com",
+        "Username": "YOUR_USERNAME",
+        "Password": "YOUR_PASSWORD"
+      }
+    ],
+    "TestScenarios": [
+      {
+        "Name": "NonBranchedLatest",
+        "ProjectId": "YourProjectId",
+        "SpaceId": "your_space_id",
+        "DocumentId": "your_document_id",
+        "Revision": null,
+        "FilterTypes": ["requirement"],
+        "ExpectedWorkItemIds": [
+          "PROJ-123",
+          "PROJ-456",
+          "PROJ-789"
+        ]
+      },
+      {
+        "Name": "BranchedLatest",
+        "ProjectId": "YourBranchedProjectId",
+        "SpaceId": "your_space_id",
+        "DocumentId": "your_document_id",
+        "Revision": null,
+        "ExpectedWorkItemIds": [
+          "BRANCH-101",
+          "BRANCH-102",
+          "PROJ-456",
+          "PROJ-789"
+        ]
+      },
+      {
+        "Name": "NonBranchedHistoricRevision",
+        "ProjectId": "YourProjectId",
+        "SpaceId": "your_space_id",
+        "DocumentId": "your_document_id",
+        "Revision": "12345",
+        "ExpectedWorkItemIds": [
+          "PROJ-100",
+          "PROJ-200",
+          "PROJ-300"
+        ]
+      },
+      {
+        "Name": "BranchedHistoricRevision",
+        "ProjectId": "YourBranchedProjectId",
+        "SpaceId": "your_space_id",
+        "DocumentId": "your_document_id",
+        "Revision": "67890",
+        "ExpectedWorkItemIds": [
+          "BRANCH-50",
+          "BRANCH-51",
+          "PROJ-200",
+          "PROJ-300"
+        ]
+      }
+    ]
+  }
+}

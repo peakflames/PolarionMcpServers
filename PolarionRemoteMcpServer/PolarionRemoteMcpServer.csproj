@@ -6,12 +6,19 @@
     <ImplicitUsings>enable</ImplicitUsings>
 
     <!-- Container Support -->
-    <Version>0.15.0</Version>
-    <ContainerImageTag>0.15.0</ContainerImageTag>
+    <Version>0.16.0</Version>
+    <ContainerImageTag>0.16.0</ContainerImageTag>
     <EnableSdkContainerSupport>true</EnableSdkContainerSupport>
     <ContainerRepository>peakflames/polarion-remote-mcp-server</ContainerRepository>
 
-    <!-- Size optimization -->
+    <!-- Globalization/Resource optimizations (apply always) -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en-US</SatelliteResourceLanguages>
+
+  </PropertyGroup>
+
+  <!-- Size optimization properties scoped to publish only so test projects can reference this project -->
+  <PropertyGroup Condition="'$(PublishProtocol)' != '' OR '$(RuntimeIdentifier)' != ''">
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <PublishTrimmed>true</PublishTrimmed>
@@ -20,19 +27,15 @@
     <PublishReadyToRun>false</PublishReadyToRun>
     <!-- <DebugType>none</DebugType> -->
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-    <!-- Globalization/Resource optimizations -->
-    <InvariantGlobalization>true</InvariantGlobalization>
-    <SatelliteResourceLanguages>en-US</SatelliteResourceLanguages>   
 
   </PropertyGroup>
 
   <ItemGroup>
     <RuntimeHostConfigurationOption Include="System.Globalization.Invariant" Value="true" />
   </ItemGroup>
-  
+
 
   <ItemGroup>
-    <PackageReference Include="Polarion" Version="0.3.4"/>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.6" />
     <PackageReference Include="ModelContextProtocol" Version="0.7.0-preview.1" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" Version="0.7.0-preview.1" />
@@ -47,7 +50,7 @@
     <ProjectReference Include="..\PolarionMcpTools\PolarionMcpTools.csproj" />
   </ItemGroup>
 
-  <ItemGroup>    
+  <ItemGroup>
     <TrimmerRootAssembly Include="Serilog" />
     <TrimmerRootAssembly Include="ReverseMarkdown" />
     <TrimmerRootAssembly Include="HtmlAgilityPack" />
