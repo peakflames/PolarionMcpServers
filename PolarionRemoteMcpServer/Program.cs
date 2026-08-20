@@ -10,6 +10,7 @@ using Scalar.AspNetCore;
 // using Microsoft.Extensions.Logging; // No longer directly used here, Serilog handles it
 using Polarion;
 using PolarionMcpTools; // Added for IPolarionClientFactory and PolarionClientFactory
+using PolarionRemoteMcpServer.Auth;
 using PolarionRemoteMcpServer.Authentication;
 using PolarionRemoteMcpServer.Endpoints;
 using PolarionRemoteMcpServer.Services;
@@ -194,10 +195,16 @@ public class Program
 
             // Add the McpServer to the DI container
             //
-            builder.Services
+            var mcpBuilder = builder.Services
                 .AddMcpServer()
                 .WithHttpTransport(o => o.Stateless = true)
                 .WithTools<PolarionMcpTools.McpTools>();
+
+            // McpAuth defaults off (McpAuth:Enabled unset or false) — AddMcpAuth returns false
+            // without registering anything, so anonymous MCP access is unchanged unless a
+            // deployment opts in explicitly.
+            //
+            var mcpAuthEnabled = builder.AddMcpAuth(mcpBuilder);
 
             // Build and Run the McpServer
             //
@@ -246,9 +253,15 @@ public class Program
             app.MapHealthEndpoints();
             Log.Information("Health endpoints mapped at /api/health and /api/version");
 
-            // Map MCP endpoints
+            // Map MCP endpoints. RequireAuthorization is applied only when McpAuth is enabled —
+            // schemes are left unpinned so the default-scheme resolution set up by AddMcpAuth
+            // (JwtBearer authenticate / Mcp challenge) is what actually gates this route.
             //
-            app.MapMcp("{projectId}/mcp");    // /{projectId}/mcp (streamable HTTP)
+            var mcpConventionBuilder = app.MapMcp("{projectId}/mcp");    // /{projectId}/mcp (streamable HTTP)
+            if (mcpAuthEnabled)
+            {
+                mcpConventionBuilder.RequireAuthorization(ApiScopes.McpReadPolicy);
+            }
 
             // Map REST API endpoints (Polarion REST API compatible)
             //
