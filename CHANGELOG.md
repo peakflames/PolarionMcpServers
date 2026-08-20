@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 ### Added
 
+- Per-caller project-visibility gate (`Rbac:Enabled`, default `false`), authorizing each tool call against the calling user's own Polarion project access instead of the shared service account. Requires `McpAuth:Enabled=true`
+- `Rbac:AuditOnly` mode to log what would be denied without blocking anything, for staged rollout
+- An access-audit record per tool call — caller, tool, project, and authorization decision — when the gate is on
 - OAuth 2.1 resource-server authentication for the MCP endpoint (`McpAuth:Enabled`, default `false`). Validates bearer tokens against an external authorization server (`McpAuth:Issuer`, `McpAuth:ResourceUri`) and requires the `polarion:read` scope
 - RFC 9728 protected-resource metadata, auto-served at `/.well-known/oauth-protected-resource/{alias}/mcp` when `McpAuth:Enabled` is `true`, so OAuth clients can discover the authorization server and required scope
 - REST endpoints are unaffected — `X-API-Key` authentication continues to gate them regardless of `McpAuth:Enabled`
