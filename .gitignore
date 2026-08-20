@@ -5,6 +5,7 @@
 
 # dotenv files
 .env
+*secrets.env
 
 # User-specific files
 *.rsuser
@@ -502,4 +503,3 @@ PolarionRemoteMcpServer/appsettings.Development.json
 # Test results
 TestResults/
 *.trx
-
