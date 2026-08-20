@@ -124,7 +124,7 @@ python build.py log --tail 100 --level error  # Combine options
 
 ### URLs (when running)
 - http://localhost:5090 - Landing page
-- http://localhost:5090/mcp - MCP endpoint (for AI tool integration)
+- http://localhost:5090/{alias}/mcp - MCP endpoint, per-project alias (for AI tool integration)
 
 ### Key Behaviors
 - **`build`** auto-stops any running instance (prevents Windows file lock errors)

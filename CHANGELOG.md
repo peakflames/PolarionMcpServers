@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+### Changed
+
+- Bump `ModelContextProtocol` and `ModelContextProtocol.AspNetCore` to 2.1.0
+- MCP HTTP transport now runs stateless (`Stateless = true`)
+- **BREAKING:** `PolarionRemoteMcpServer` now serves MCP only at `/{alias}/mcp`; the legacy `/{alias}` and `/{alias}/sse` mounts are removed — point any client at the `/{alias}/mcp` path
+
+### Removed
+
+- Remove the SSE stream-disconnection workaround middleware for the legacy TypeScript MCP SDK GET-loop bug, obsolete now that the transport is streamable-HTTP-only
+
 ## [0.16.0] - 2026-04-28
 
 ### Added
