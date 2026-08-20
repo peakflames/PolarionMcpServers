@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 - OAuth 2.1 resource-server authentication for the MCP endpoint (`McpAuth:Enabled`, default `false`). Validates bearer tokens against an external authorization server (`McpAuth:Issuer`, `McpAuth:ResourceUri`) and requires the `polarion:read` scope
 - RFC 9728 protected-resource metadata, auto-served at `/.well-known/oauth-protected-resource/{alias}/mcp` when `McpAuth:Enabled` is `true`, so OAuth clients can discover the authorization server and required scope
 - REST endpoints are unaffected — `X-API-Key` authentication continues to gate them regardless of `McpAuth:Enabled`
+- An upstream-credential resolution seam for the MCP endpoint (`Credentials:Mode`, default `Shared` — every caller continues to authenticate to Polarion as the configured service account, unchanged). An `HttpBroker` mode is built for a future external credential broker that resolves a per-user Polarion credential from the caller's authenticated identity, off unless explicitly configured
 
 ### Changed
 

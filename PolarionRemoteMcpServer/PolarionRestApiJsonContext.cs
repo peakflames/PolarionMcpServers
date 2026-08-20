@@ -69,6 +69,10 @@ namespace PolarionRemoteMcpServer;
 [JsonSerializable(typeof(ApiConsumersConfig))]
 [JsonSerializable(typeof(Dictionary<string, ApiConsumerConfig>))]
 [JsonSerializable(typeof(List<string>))]
+
+// Upstream credential broker wire types (Credentials:Mode=HttpBroker)
+[JsonSerializable(typeof(Credentials.BrokerCredentialRequest))]
+[JsonSerializable(typeof(Credentials.BrokerCredentialResponse))]
 public partial class PolarionRestApiJsonContext : JsonSerializerContext
 {
 }

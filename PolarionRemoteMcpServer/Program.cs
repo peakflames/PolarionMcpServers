@@ -13,6 +13,7 @@ using PolarionMcpTools; // Added for IPolarionClientFactory and PolarionClientFa
 using PolarionMcpTools.Rbac;
 using PolarionRemoteMcpServer.Auth;
 using PolarionRemoteMcpServer.Authentication;
+using PolarionRemoteMcpServer.Credentials;
 using PolarionRemoteMcpServer.Endpoints;
 using PolarionRemoteMcpServer.Rbac;
 using PolarionRemoteMcpServer.Services;
@@ -220,6 +221,13 @@ public class Program
             // RbacOptionsValidator at startup) since there is no caller identity to check otherwise.
             //
             var rbacEnabled = builder.AddRbac(mcpBuilder);
+
+            // Credential resolution seam. Always registers SharedCredentialResolver as the default
+            // (today's shared-service-account behavior, unchanged) — Credentials:Mode=HttpBroker is
+            // the only branch this ships off, swapping in a per-caller credential resolved from a
+            // configured external broker.
+            //
+            builder.AddCredentials();
 
             // Build and Run the McpServer
             //
