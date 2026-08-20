@@ -25,6 +25,12 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 - Remove the SSE stream-disconnection workaround middleware for the legacy TypeScript MCP SDK GET-loop bug, obsolete now that the transport is streamable-HTTP-only
 
+### Security
+
+- An unmapped or misspelled project alias in the MCP route now fails the request instead of silently falling back to serve the default project's data
+- REST API 404 responses for an unknown project no longer list every configured project ID in the response body
+- API key comparison during REST authentication now runs in constant time, closing a timing side-channel
+
 ## [0.16.0] - 2026-04-28
 
 ### Added

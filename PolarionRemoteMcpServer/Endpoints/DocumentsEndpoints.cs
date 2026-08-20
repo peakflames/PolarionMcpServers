@@ -52,7 +52,7 @@ public static class DocumentsEndpoints
         var projectConfig = projectResolver.GetProjectConfig(projectId);
         if (projectConfig == null)
         {
-            return CreateNotFoundResponse(projectId, projectResolver.GetConfiguredProjectIds());
+            return CreateNotFoundResponse(projectId);
         }
 
         // Create client for this project
@@ -141,7 +141,7 @@ public static class DocumentsEndpoints
         var projectConfig = projectResolver.GetProjectConfig(projectId);
         if (projectConfig == null)
         {
-            return CreateNotFoundResponse(projectId, projectResolver.GetConfiguredProjectIds());
+            return CreateNotFoundResponse(projectId);
         }
 
         // Create client for this project
@@ -233,7 +233,7 @@ public static class DocumentsEndpoints
         var projectConfig = projectResolver.GetProjectConfig(projectId);
         if (projectConfig == null)
         {
-            return CreateNotFoundResponse(projectId, projectResolver.GetConfiguredProjectIds());
+            return CreateNotFoundResponse(projectId);
         }
 
         // Create client for this project
@@ -424,7 +424,7 @@ public static class DocumentsEndpoints
         var projectConfig = projectResolver.GetProjectConfig(projectId);
         if (projectConfig == null)
         {
-            return CreateNotFoundResponse(projectId, projectResolver.GetConfiguredProjectIds());
+            return CreateNotFoundResponse(projectId);
         }
 
         // Create client for this project
@@ -525,14 +525,12 @@ public static class DocumentsEndpoints
         return "N/A";
     }
 
-    private static IResult CreateNotFoundResponse(string projectId, IEnumerable<string> availableProjects)
+    // Does not enumerate configured project IDs in the response body — that list is only useful
+    // to an already-authorized caller and is over-disclosure to anyone else holding a valid API
+    // key. RestApiProjectResolver.GetProjectConfig already logs it server-side on lookup failure.
+    private static IResult CreateNotFoundResponse(string projectId)
     {
-        var availableList = string.Join(", ", availableProjects);
-        var detail = string.IsNullOrEmpty(availableList)
-            ? $"Project '{projectId}' not found. No projects are configured."
-            : $"Project '{projectId}' not found. Available projects: {availableList}";
-
-        return CreateErrorResponse("404", "Not Found", detail);
+        return CreateErrorResponse("404", "Not Found", $"Project '{projectId}' not found.");
     }
 
     private static IResult CreateErrorResponse(string status, string title, string detail)
