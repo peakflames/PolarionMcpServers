@@ -10,9 +10,11 @@ using Scalar.AspNetCore;
 // using Microsoft.Extensions.Logging; // No longer directly used here, Serilog handles it
 using Polarion;
 using PolarionMcpTools; // Added for IPolarionClientFactory and PolarionClientFactory
+using PolarionMcpTools.Rbac;
 using PolarionRemoteMcpServer.Auth;
 using PolarionRemoteMcpServer.Authentication;
 using PolarionRemoteMcpServer.Endpoints;
+using PolarionRemoteMcpServer.Rbac;
 using PolarionRemoteMcpServer.Services;
 using Serilog;
 using Microsoft.Extensions.Configuration;
@@ -205,6 +207,19 @@ public class Program
             // deployment opts in explicitly.
             //
             var mcpAuthEnabled = builder.AddMcpAuth(mcpBuilder);
+
+            // Default no-op, always registered first — AddRbac (below) Replace()s this with the real
+            // gate only when Rbac:Enabled=true, so a server with the feature off never constructs the
+            // real gate's dependencies.
+            //
+            builder.Services.AddSingleton<IProjectVisibilityGate, NoOpProjectVisibilityGate>();
+
+            // Rbac defaults off (Rbac:Enabled unset or false) — AddRbac returns false without
+            // registering anything beyond the no-op gate above, so behavior is unchanged unless a
+            // deployment opts in explicitly. Requires McpAuth:Enabled=true (enforced by
+            // RbacOptionsValidator at startup) since there is no caller identity to check otherwise.
+            //
+            var rbacEnabled = builder.AddRbac(mcpBuilder);
 
             // Build and Run the McpServer
             //
