@@ -196,7 +196,7 @@ public class Program
             //
             builder.Services
                 .AddMcpServer()
-                .WithHttpTransport()
+                .WithHttpTransport(o => o.Stateless = true)
                 .WithTools<PolarionMcpTools.McpTools>();
 
             // Build and Run the McpServer
@@ -212,45 +212,16 @@ public class Program
                 ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
             });
 
+            // UseRouting must run before UseAuthentication/UseAuthorization so that endpoint
+            // metadata (RequireAuthorization) is available by the time authorization middleware
+            // runs — without an explicit UseRouting call here, the implicit routing insertion
+            // point lands at the first Map* call, which is after these two and would silently
+            // turn authorization into a no-op (every request reaches the endpoint unauthenticated).
+            app.UseRouting();
+
             // Add authentication and authorization middleware
             //
             app.UseApiKeyAuthentication();
-
-            // SSE stream disconnection workaround for Cline/TypeScript MCP SDK (streamableHttp only)
-            // The TypeScript MCP SDK has a bug where GET requests wait in a loop that can timeout.
-            // This middleware intercepts GET requests to streamableHttp endpoints and sends a dummy response.
-            // NOTE: This only applies to streamableHttp transport (GET /{projectId}), NOT legacy SSE (GET /{projectId}/sse)
-            // See: https://github.com/cline/cline/issues/8367
-            // See: https://github.com/modelcontextprotocol/typescript-sdk/issues/1211
-            app.Use(async (context, next) =>
-            {
-                // Only intercept GET requests for streamableHttp transport
-                // Exclude: /sse, /message, REST API, OpenAPI, Scalar, api/*, or root
-                var path = context.Request.Path.Value;
-                if (context.Request.Method == "GET" &&
-                    path != null &&
-                    !path.EndsWith("/sse") &&
-                    !path.EndsWith("/message") &&
-                    !path.StartsWith("/polarion/rest", StringComparison.OrdinalIgnoreCase) &&
-                    !path.StartsWith("/openapi", StringComparison.OrdinalIgnoreCase) &&
-                    !path.StartsWith("/scalar", StringComparison.OrdinalIgnoreCase) &&
-                    !path.StartsWith("/api", StringComparison.OrdinalIgnoreCase) &&
-                    !path.Equals("/", StringComparison.Ordinal))
-                {
-                    Log.Debug("StreamableHttp workaround: Intercepting GET {Path}", context.Request.Path);
-
-                    context.Response.ContentType = "text/event-stream";
-                    context.Response.Headers.CacheControl = "no-cache";
-                    context.Response.Headers.Connection = "keep-alive";
-
-                    // Use a hardcoded JSON string to avoid reflection-based serialization issues in AOT
-                    const string fakeResponseJson = """{"id":0,"jsonrpc":"2.0","result":{}}""";
-                    await context.Response.WriteAsync($"event: message\ndata: {fakeResponseJson}\n\n");
-                    return; // Short-circuit, don't call next middleware
-                }
-
-                await next();
-            });
 
             // Get version info for logging
             var assembly = Assembly.GetExecutingAssembly();
@@ -277,7 +248,6 @@ public class Program
 
             // Map MCP endpoints
             //
-            app.MapMcp("{projectId}");        // /{projectId}, /{projectId}/sse
             app.MapMcp("{projectId}/mcp");    // /{projectId}/mcp (streamable HTTP)
 
             // Map REST API endpoints (Polarion REST API compatible)
