@@ -32,9 +32,13 @@ public static class AuthenticationServiceCollectionExtensions
             .Bind(builder.Configuration.GetSection(McpAuthOptions.SectionName))
             .ValidateOnStart();
         services.AddSingleton<IValidateOptions<McpAuthOptions>, McpAuthOptionsValidator>();
+        services.AddSingleton<IPostConfigureOptions<McpAuthOptions>, ReplaceConfiguredScopesSupported>();
 
         services.AddSingleton<IConfigureOptions<JwtBearerOptions>, ConfigureJwtBearerOptions>();
         services.AddSingleton<IConfigureOptions<McpAuthenticationOptions>, ConfigureMcpAuthenticationOptions>();
+
+        services.AddSingleton<IAuthorizationHandler, ClientIdAuthorizationHandler>();
+        services.AddSingleton<IAuthorizationHandler, McpScopeAuthorizationHandler>();
 
         // This second AddAuthentication(...) call layers on top of AddApiKeyAuthentication's
         // earlier one — the options system applies both configure delegates in registration
@@ -59,7 +63,7 @@ public static class AuthenticationServiceCollectionExtensions
         services.AddAuthorizationBuilder()
             .AddPolicy(ApiScopes.McpReadPolicy, policy => policy
                 .RequireAuthenticatedUser()
-                .RequireAssertion(context => ScopeClaimHelper.HasScope(context.User, ApiScopes.PolarionRead)));
+                .AddRequirements(new McpScopeRequirement(ApiScopes.PolarionRead), new ClientIdRequirement()));
 
         return true;
     }
