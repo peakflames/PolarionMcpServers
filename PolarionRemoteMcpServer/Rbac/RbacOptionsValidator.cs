@@ -41,6 +41,16 @@ public sealed class RbacOptionsValidator : IValidateOptions<RbacOptions>
         if (options.IdentityCacheTtlSeconds < 1 || options.IdentityCacheTtlSeconds > 86400)
             failures.Add("Rbac:IdentityCacheTtlSeconds must be between 1 and 86400.");
 
+        if (options.IdentitySource == IdentitySource.UserInfo && string.IsNullOrWhiteSpace(_mcpAuthOptions.Value.Issuer))
+        {
+            failures.Add(
+                "Rbac:IdentitySource=UserInfo requires McpAuth:Issuer — the /userinfo endpoint is " +
+                "derived from it.");
+        }
+
+        if (options.UserInfoCacheTtlSeconds < 1 || options.UserInfoCacheTtlSeconds > 86400)
+            failures.Add("Rbac:UserInfoCacheTtlSeconds must be between 1 and 86400.");
+
         if (options.MembershipCacheTtlSeconds < 1 || options.MembershipCacheTtlSeconds > 86400)
             failures.Add("Rbac:MembershipCacheTtlSeconds must be between 1 and 86400.");
 

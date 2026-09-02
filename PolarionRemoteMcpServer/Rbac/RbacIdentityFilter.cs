@@ -4,6 +4,7 @@ using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using PolarionMcpTools;
 using PolarionMcpTools.Rbac;
+using PolarionRemoteMcpServer.Auth;
 using PolarionRemoteMcpServer.Rbac.Audit;
 using System.Diagnostics;
 
@@ -37,6 +38,7 @@ public static class RbacIdentityFilter
             var options = services.GetRequiredService<IOptions<RbacOptions>>().Value;
             var gate = services.GetRequiredService<IProjectVisibilityGate>();
             var identityResolver = services.GetRequiredService<IIdentityResolver>();
+            var identitySource = services.GetRequiredService<IIdentitySource>();
             var accessor = services.GetRequiredService<IRbacCallContextAccessor>();
             var auditSink = services.GetRequiredService<IMcpAccessAuditSink>();
             var clientFactory = services.GetRequiredService<IPolarionClientFactory>();
@@ -44,7 +46,11 @@ public static class RbacIdentityFilter
             var toolName = request.Params?.Name ?? string.Empty;
             var projectAlias = clientFactory.ProjectId;
 
-            var identityClaimValue = request.User?.FindFirst(options.IdentityClaim)?.Value;
+            // Behind IIdentitySource rather than a direct claim read: against an authorization server
+            // that puts no identity claim on its access tokens, a direct read returns null for every
+            // caller and the fail-closed gate denies every call while the server reports healthy.
+            var identity = await identitySource.GetIdentityAsync(request.User, cancellationToken);
+            var identityClaimValue = identity.Value;
             var polarionUsername = identityClaimValue is not null
                 ? await identityResolver.ResolveAsync(identityClaimValue, cancellationToken)
                 : null;
@@ -59,7 +65,8 @@ public static class RbacIdentityFilter
 
             try
             {
-                var decision = await DecideAsync(gate, projectAlias, polarionUsername, cancellationToken);
+                var decision = await DecideAsync(
+                    gate, projectAlias, polarionUsername, identity.UnresolvedReason, cancellationToken);
 
                 // Elapsed here is gate latency only — not the downstream tool body's own latency.
                 var elapsedMs = stopwatch.ElapsedMilliseconds;
@@ -70,7 +77,11 @@ public static class RbacIdentityFilter
                 auditSink.Record(new AccessAuditRecord(
                     DateTimeOffset.UtcNow,
                     request.User?.FindFirst("sub")?.Value,
-                    request.User?.FindFirst("client_id")?.Value,
+                    // "client_id" is RFC 9068's spelling; "cid" is Okta's on an access token. Both are
+                    // checked because the audit record's whole purpose is naming the client, and an
+                    // empty column against a real deployment is a silent loss.
+                    request.User?.FindFirst("client_id")?.Value
+                        ?? request.User?.FindFirst(ClientIdRequirement.ClaimType)?.Value,
                     request.User?.FindFirst("jti")?.Value,
                     identityClaimValue,
                     polarionUsername,
@@ -97,13 +108,20 @@ public static class RbacIdentityFilter
     /// <see cref="PolarionProjectUsersGate"/> performs the real per-project membership check.
     /// </summary>
     private static async ValueTask<GateDecision> DecideAsync(
-        IProjectVisibilityGate gate, string? projectAlias, string? identity, CancellationToken cancellationToken)
+        IProjectVisibilityGate gate,
+        string? projectAlias,
+        string? identity,
+        string? unresolvedReason,
+        CancellationToken cancellationToken)
     {
         if (!gate.Enabled)
             return GateDecision.Allow("rbac_gate_not_configured");
 
         if (identity is null)
-            return GateDecision.Deny("identity_unresolved");
+            // A rate-limited /userinfo call carries its own reason (e.g. identity_userinfo_rate_limited)
+            // so it is distinguishable in the audit log from a caller who genuinely has no identity —
+            // collapsing the two would make an outage look exactly like a routine denial.
+            return GateDecision.Deny(unresolvedReason ?? IdentityUnresolvedReasons.Unresolved);
 
         if (string.IsNullOrEmpty(projectAlias))
             return GateDecision.Deny("project_alias_missing");
