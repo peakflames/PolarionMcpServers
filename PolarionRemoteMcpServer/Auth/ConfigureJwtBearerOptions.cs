@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
+using PolarionMcpTools;
 
 namespace PolarionRemoteMcpServer.Auth;
 
@@ -20,10 +22,12 @@ namespace PolarionRemoteMcpServer.Auth;
 public sealed class ConfigureJwtBearerOptions : IConfigureNamedOptions<JwtBearerOptions>
 {
     private readonly IOptions<McpAuthOptions> _authOptions;
+    private readonly List<PolarionProjectConfig> _projects;
 
-    public ConfigureJwtBearerOptions(IOptions<McpAuthOptions> authOptions)
+    public ConfigureJwtBearerOptions(IOptions<McpAuthOptions> authOptions, List<PolarionProjectConfig> projects)
     {
         _authOptions = authOptions;
+        _projects = projects;
     }
 
     public void Configure(string? name, JwtBearerOptions options)
@@ -55,14 +59,54 @@ public sealed class ConfigureJwtBearerOptions : IConfigureNamedOptions<JwtBearer
 
         var tvp = options.TokenValidationParameters;
         tvp.ValidateIssuer = true;
-        tvp.ValidateAudience = true;
+
+        // The only relaxation this class permits, and only when explicitly configured: an Okta
+        // *org* authorization server stamps `aud` with its own issuer and offers no way to set a
+        // per-resource audience. ClientIdRequirement then carries the binding instead, and
+        // McpAuthOptionsValidator refuses to boot if that substitute is missing.
+        tvp.ValidateAudience = auth.ValidateAudience;
         tvp.ValidateLifetime = true;
         tvp.ValidateIssuerSigningKey = true;
         tvp.ValidIssuer = auth.Issuer;
-        tvp.ValidAudience = auth.ResourceUri;
+
+        // One MCP server serves several project aliases, each advertising its own RFC 9728
+        // `resource` (see McpAuthOptions.ResourceFor / ConfigureMcpAuthenticationOptions). The
+        // spec-conforming audience check therefore accepts any of them, not a single fixed value.
+        // Moot while ValidateAudience is false (the org-AS shape), but keeps the audience-validating
+        // path correct for a future authorization server that can mint one.
+        tvp.ValidAudiences = _projects.Select(p => auth.ResourceFor(p.ProjectUrlAlias));
         tvp.ClockSkew = TimeSpan.FromSeconds(auth.ClockSkewSeconds);
 
         // Pinned — blocks alg-confusion attacks and "none".
         tvp.ValidAlgorithms = ["RS256"];
+
+        CaptureRawTokenForUserInfo(options);
+    }
+
+    /// <summary>
+    /// Stashes the validated raw token on the HttpContext so an OIDC <c>/userinfo</c> call can be
+    /// made on the caller's behalf — the only way to reach an `email` for an authorization server
+    /// that puts none on its access tokens. Captured here rather than re-read from the
+    /// Authorization header downstream so only a token that already *passed* validation is ever
+    /// reachable.
+    ///
+    /// The existing delegate is chained, not replaced: JwtBearerEvents initializes its delegates to
+    /// no-ops, so overwriting looks harmless today and would silently drop someone else's handler
+    /// the moment one is added.
+    /// </summary>
+    private static void CaptureRawTokenForUserInfo(JwtBearerOptions options)
+    {
+        options.Events ??= new JwtBearerEvents();
+        var previous = options.Events.OnTokenValidated;
+
+        options.Events.OnTokenValidated = async context =>
+        {
+            await previous(context);
+
+            if (context.SecurityToken is JsonWebToken jwt)
+            {
+                context.HttpContext.Items[McpAuthHttpContextItems.RawAccessToken] = jwt.EncodedToken;
+            }
+        };
     }
 }

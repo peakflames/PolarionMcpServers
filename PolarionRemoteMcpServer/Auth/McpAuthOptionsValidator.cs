@@ -28,6 +28,7 @@ public sealed class McpAuthOptionsValidator : IValidateOptions<McpAuthOptions>
         ValidateResourceUri(options, failures);
         ValidateMetadataAddress(options, isDevelopment, failures);
         ValidateClockSkew(options, failures);
+        ValidateClientBinding(options, failures);
 
         return failures.Count == 0
             ? ValidateOptionsResult.Success
@@ -67,6 +68,37 @@ public sealed class McpAuthOptionsValidator : IValidateOptions<McpAuthOptions>
         if (!string.IsNullOrEmpty(resourceUri.Fragment))
         {
             failures.Add("ResourceUri must not contain a fragment.");
+        }
+
+        // ResourceUri is now the base URL a per-alias resource is derived from (see
+        // McpAuthOptions.ResourceFor). A trailing /mcp is the old single-alias shape and would
+        // double up into .../mcp/{alias}/mcp once ResourceFor appends the alias and /mcp.
+        if (resourceUri.AbsolutePath.TrimEnd('/').EndsWith("/mcp", StringComparison.OrdinalIgnoreCase))
+        {
+            failures.Add("ResourceUri must be a base URL with no alias and no trailing /mcp — " +
+                "the per-alias resource (…/{alias}/mcp) is derived automatically.");
+        }
+    }
+
+    private static void ValidateClientBinding(McpAuthOptions options, List<string> failures)
+    {
+        if (!options.ValidateAudience && (options.AllowedClientIds is null || options.AllowedClientIds.Count == 0))
+        {
+            failures.Add("AllowedClientIds must not be empty when ValidateAudience is false — " +
+                "otherwise a token issued to any client for any resource would be accepted.");
+            return;
+        }
+
+        if (options.AllowedClientIds is null)
+            return;
+
+        foreach (var clientId in options.AllowedClientIds)
+        {
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                failures.Add("AllowedClientIds must not contain blank entries.");
+                break;
+            }
         }
     }
 
