@@ -52,6 +52,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="PolarionRemoteMcpServer.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <TrimmerRootAssembly Include="Serilog" />
     <TrimmerRootAssembly Include="ReverseMarkdown" />
     <TrimmerRootAssembly Include="HtmlAgilityPack" />

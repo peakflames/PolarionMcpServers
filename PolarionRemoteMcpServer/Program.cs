@@ -25,275 +25,14 @@ namespace PolarionRemoteMcpServer;
 [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
 public class Program
 {
-
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
     public static int Main(string[] args)
     {
         try
         {
-            // Create the DI container first so we can access environment
-            //
-            var builder = WebApplication.CreateBuilder(args);
+            var app = BuildApp(args);
 
-            // Configure Serilog based on environment
-            //
-            var logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
-            var logConfig = new LoggerConfiguration().MinimumLevel.Verbose();
-
-            if (builder.Environment.EnvironmentName == "Test")
-            {
-                // Test environment: Use timestamped log files in test-runs subdirectory
-                var testLogDirectory = Path.Combine(logDirectory, "test-runs");
-                Directory.CreateDirectory(testLogDirectory);
-
-                var timestamp = DateTime.Now.ToString("yyyy-MM-dd-HHmmss");
-                var logPath = Path.Combine(testLogDirectory, $"test-run-{timestamp}.log");
-
-                logConfig
-                    .WriteTo.File(logPath,
-                        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
-                    .WriteTo.Console();
-
-                // Clean up old test logs (keep last 10)
-                CleanupOldTestLogs(testLogDirectory, retainCount: 10);
-            }
-            else
-            {
-                // Development/Production: Use rolling daily logs
-                logConfig
-                    .WriteTo.File(Path.Combine(logDirectory, "PolarionMcpServer_.log"),
-                        rollingInterval: RollingInterval.Day,
-                        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
-                    .WriteTo.Debug()
-                    .WriteTo.Console(standardErrorFromLevel: Serilog.Events.LogEventLevel.Verbose);
-            }
-
-            Log.Logger = logConfig.CreateLogger();
-            
-            // Add to support the polarion client factory access to the route data
-            //
-            builder.Services.AddHttpContextAccessor();
-
-            // Configure JsonSerializerOptions to use the source generator contexts
-            //
-            builder.Services.Configure<JsonSerializerOptions>(options =>
-            {
-                // Ensure our source generator contexts are prioritized for JSON operations
-                options.TypeInfoResolverChain.Insert(0, PolarionConfigJsonContext.Default);
-                options.TypeInfoResolverChain.Insert(0, PolarionRestApiJsonContext.Default);
-            });
-
-
-            // Get the entire application configuration from appsettings.json using source generation context
-            //
-            var appConfig = builder.Configuration.Get<PolarionAppConfig>() ??
-                            throw new InvalidOperationException("Application configuration (PolarionAppConfig) is missing or invalid.");
-
-            var polarionProjects = appConfig.PolarionProjects ?? 
-                                   throw new InvalidOperationException("PolarionProjects configuration section is missing or invalid within PolarionAppConfig.");
-            
-            // Validate the loaded project configurations
-            //
-            if (!polarionProjects.Any())
-            {
-                throw new InvalidOperationException("No Polarion projects configured in PolarionProjects section.");
-            }
-            if (polarionProjects.Count(p => p.Default) > 1)
-            {
-                throw new InvalidOperationException("Multiple Polarion projects are marked as Default. Only one can be default.");
-            }
-
-            // Log information about loaded projects
-            //
-            Log.Information("Loaded {Count} Polarion project configurations.", polarionProjects.Count);
-            foreach(var proj in polarionProjects)
-            {
-                Log.Information(" - Project Alias: {Alias}, Server: {Server}, Default: {IsDefault}", 
-                    proj.ProjectUrlAlias, proj.SessionConfig!.ServerUrl, proj.Default);
-            }
-            
-
-            // Allow overriding passwords via the POLARION_PASSWORD environment variable.
-            // When set, applies to all projects as a global fallback.
-            var globalPassword = Environment.GetEnvironmentVariable("POLARION_PASSWORD");
-            if (!string.IsNullOrEmpty(globalPassword))
-            {
-                foreach (var proj in polarionProjects)
-                {
-                    if (proj?.SessionConfig != null)
-                    {
-                        proj.SessionConfig.Password = globalPassword;
-                        Log.Information("Overrode SessionConfig.Password for project '{ProjectAlias}' from env var 'POLARION_PASSWORD'", proj.ProjectUrlAlias);
-                    }
-                }
-            }
-
-            // Add Serilog
-            //
-            builder.Services.AddSerilog();
-
-            // Add API key authentication for REST API endpoints
-            //
-            builder.Services.AddApiKeyAuthentication(builder.Configuration);
-
-            // Add OpenAPI for REST API documentation
-            // Note: OpenAPI requires its own JSON serializer options with reflection support for schema generation
-            //
-            builder.Services.AddOpenApi(options =>
-            {
-                options.AddDocumentTransformer((document, context, cancellationToken) =>
-                {
-                    document.Info.Title = "Polarion MCP Server REST API";
-                    document.Info.Version = "v1";
-                    document.Info.Description = "REST API endpoints compatible with Polarion REST API format";
-
-                    // Add security schemes to the document
-                    document.Components ??= new();
-                    document.Components.SecuritySchemes = new Dictionary<string, OpenApiSecurityScheme>
-                    {
-                        // API Key Authentication (header-based)
-                        ["ApiKey"] = new()
-                        {
-                            Type = SecuritySchemeType.ApiKey,
-                            In = ParameterLocation.Header,
-                            Name = "X-API-Key",
-                            Description = "API Key authentication. Obtain your API key from the system administrator."
-                        }
-                    };
-
-                    // Apply security requirements globally
-                    // This makes ALL endpoints require API Key auth by default in the documentation
-                    document.SecurityRequirements =
-                    [
-                        new()
-                        {
-                            {
-                                new OpenApiSecurityScheme
-                                {
-                                    Reference = new() { Type = ReferenceType.SecurityScheme, Id = "ApiKey" }
-                                },
-                                new string[] { }
-                            }
-                        }
-                    ];
-
-                    return Task.CompletedTask;
-                });
-            });
-
-            // Override the JSON options specifically for OpenAPI schema generation
-            // This uses reflection-based serialization needed for schema generation
-            builder.Services.ConfigureHttpJsonOptions(options =>
-            {
-                // Ensure the OpenAPI context is also available
-                options.SerializerOptions.TypeInfoResolverChain.Insert(0, PolarionRestApiJsonContext.Default);
-                options.SerializerOptions.TypeInfoResolverChain.Insert(0, PolarionConfigJsonContext.Default);
-            });
-
-            // Add the configurations and the factory to the DI container
-            //
-            builder.Services.AddSingleton(polarionProjects); // Register the list of project configurations
-            builder.Services.AddScoped<IPolarionClientFactory, PolarionRemoteClientFactory>(); // For MCP endpoints (uses ProjectUrlAlias)
-            builder.Services.AddScoped<RestApiProjectResolver>(); // For REST API endpoints (uses SessionConfig.ProjectId)
-
-            // Add the McpServer to the DI container
-            //
-            var mcpBuilder = builder.Services
-                .AddMcpServer()
-                .WithHttpTransport(o => o.Stateless = true)
-                .WithTools<PolarionMcpTools.McpTools>();
-
-            // McpAuth defaults off (McpAuth:Enabled unset or false) — AddMcpAuth returns false
-            // without registering anything, so anonymous MCP access is unchanged unless a
-            // deployment opts in explicitly.
-            //
-            var mcpAuthEnabled = builder.AddMcpAuth(mcpBuilder);
-
-            // Default no-op, always registered first — AddRbac (below) Replace()s this with the real
-            // gate only when Rbac:Enabled=true, so a server with the feature off never constructs the
-            // real gate's dependencies.
-            //
-            builder.Services.AddSingleton<IProjectVisibilityGate, NoOpProjectVisibilityGate>();
-
-            // Rbac defaults off (Rbac:Enabled unset or false) — AddRbac returns false without
-            // registering anything beyond the no-op gate above, so behavior is unchanged unless a
-            // deployment opts in explicitly. Requires McpAuth:Enabled=true (enforced by
-            // RbacOptionsValidator at startup) since there is no caller identity to check otherwise.
-            //
-            var rbacEnabled = builder.AddRbac(mcpBuilder);
-
-            // Credential resolution seam. Always registers SharedCredentialResolver as the default
-            // (today's shared-service-account behavior, unchanged) — Credentials:Mode=HttpBroker is
-            // the only branch this ships off, swapping in a per-caller credential resolved from a
-            // configured external broker.
-            //
-            builder.AddCredentials();
-
-            // Build and Run the McpServer
-            //
             Log.Information("Starting PolarionMcpServer...");
-            var app = builder.Build();
-
-            // Enable forwarded headers to correctly detect HTTPS and host when behind a reverse proxy
-            // This ensures OpenAPI/Scalar shows the correct URL (https://your-domain.com) instead of http://localhost
-            //
-            app.UseForwardedHeaders(new ForwardedHeadersOptions
-            {
-                ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
-            });
-
-            // UseRouting must run before UseAuthentication/UseAuthorization so that endpoint
-            // metadata (RequireAuthorization) is available by the time authorization middleware
-            // runs — without an explicit UseRouting call here, the implicit routing insertion
-            // point lands at the first Map* call, which is after these two and would silently
-            // turn authorization into a no-op (every request reaches the endpoint unauthenticated).
-            app.UseRouting();
-
-            // Add authentication and authorization middleware
-            //
-            app.UseApiKeyAuthentication();
-
-            // Get version info for logging
-            var assembly = Assembly.GetExecutingAssembly();
-            var version = assembly.GetName().Version?.ToString() ?? "Unknown";
-
-            // Map OpenAPI and Scalar API documentation endpoints
-            //
-            app.MapOpenApi();
-            app.MapScalarApiReference(options =>
-            {
-                options
-                    .WithTitle("Polarion MCP Server REST API")
-                    .WithTheme(ScalarTheme.DeepSpace)
-                    .WithLayout(ScalarLayout.Modern)
-                    .WithDarkMode(true)
-                    .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
-            });
-            Log.Information("Scalar API documentation available at /scalar/v1");
-
-            // Map health and version endpoints
-            //
-            app.MapHealthEndpoints();
-            Log.Information("Health endpoints mapped at /api/health and /api/version");
-
-            // Map MCP endpoints. RequireAuthorization is applied only when McpAuth is enabled —
-            // schemes are left unpinned so the default-scheme resolution set up by AddMcpAuth
-            // (JwtBearer authenticate / Mcp challenge) is what actually gates this route.
-            //
-            var mcpConventionBuilder = app.MapMcp("{projectId}/mcp");    // /{projectId}/mcp (streamable HTTP)
-            if (mcpAuthEnabled)
-            {
-                mcpConventionBuilder.RequireAuthorization(ApiScopes.McpReadPolicy);
-            }
-
-            // Map REST API endpoints (Polarion REST API compatible)
-            //
-            app.MapWorkItemsEndpoints();
-            app.MapSpacesEndpoints();
-            app.MapDocumentsEndpoints();
-            Log.Information("REST API endpoints mapped at /polarion/rest/v1/projects/{{projectId}}/...");
-            Log.Information("PolarionMcpServer v{Version} started successfully", version);
-
             app.Run();
             return 0;
         }
@@ -304,6 +43,301 @@ public class Program
             Console.ResetColor();
             return 1;
         }
+    }
+
+    /// <summary>
+    /// Builds the configured <see cref="WebApplication"/> without running it.
+    ///
+    /// <paramref name="configure"/> runs immediately after <see cref="WebApplication.CreateBuilder"/>,
+    /// before this method's own eager <c>builder.Configuration.Get&lt;PolarionAppConfig&gt;()</c> read.
+    /// A plain <see cref="Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory{TEntryPoint}"/> only
+    /// gets to append configuration sources after <c>Main</c> runs — too late for a value this method
+    /// reads eagerly — so tests inject in-memory configuration through this hook instead.
+    ///
+    /// <paramref name="postAuthConfigure"/> runs immediately after
+    /// <see cref="AuthenticationServiceCollectionExtensions.AddCredentials"/>, i.e. after AddMcpAuth
+    /// and AddRbac have finished registering their own services (including any <c>Replace()</c>
+    /// calls) but before <see cref="WebApplicationBuilder.Build"/> — so a test can substitute one of
+    /// those services (e.g. <c>IProjectVisibilityGate</c>) without racing AddRbac's own
+    /// <c>Replace()</c> call.
+    /// </summary>
+    [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
+    public static WebApplication BuildApp(
+        string[] args,
+        Action<WebApplicationBuilder>? configure = null,
+        Action<WebApplicationBuilder>? postAuthConfigure = null)
+    {
+        // Create the DI container first so we can access environment
+        //
+        var builder = WebApplication.CreateBuilder(args);
+        configure?.Invoke(builder);
+
+        // Configure Serilog based on environment
+        //
+        var logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+        var logConfig = new LoggerConfiguration().MinimumLevel.Verbose();
+
+        if (builder.Environment.EnvironmentName == "Test")
+        {
+            // Test environment: Use timestamped log files in test-runs subdirectory
+            var testLogDirectory = Path.Combine(logDirectory, "test-runs");
+            Directory.CreateDirectory(testLogDirectory);
+
+            var timestamp = DateTime.Now.ToString("yyyy-MM-dd-HHmmss");
+            var logPath = Path.Combine(testLogDirectory, $"test-run-{timestamp}.log");
+
+            logConfig
+                .WriteTo.File(logPath,
+                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+                .WriteTo.Console();
+
+            // Clean up old test logs (keep last 10)
+            CleanupOldTestLogs(testLogDirectory, retainCount: 10);
+        }
+        else
+        {
+            // Development/Production: Use rolling daily logs
+            logConfig
+                .WriteTo.File(Path.Combine(logDirectory, "PolarionMcpServer_.log"),
+                    rollingInterval: RollingInterval.Day,
+                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+                .WriteTo.Debug()
+                .WriteTo.Console(standardErrorFromLevel: Serilog.Events.LogEventLevel.Verbose);
+        }
+
+        Log.Logger = logConfig.CreateLogger();
+
+        // Add to support the polarion client factory access to the route data
+        //
+        builder.Services.AddHttpContextAccessor();
+
+        // Configure JsonSerializerOptions to use the source generator contexts
+        //
+        builder.Services.Configure<JsonSerializerOptions>(options =>
+        {
+            // Ensure our source generator contexts are prioritized for JSON operations
+            options.TypeInfoResolverChain.Insert(0, PolarionConfigJsonContext.Default);
+            options.TypeInfoResolverChain.Insert(0, PolarionRestApiJsonContext.Default);
+        });
+
+
+        // Get the entire application configuration from appsettings.json using source generation context
+        //
+        var appConfig = builder.Configuration.Get<PolarionAppConfig>() ??
+                        throw new InvalidOperationException("Application configuration (PolarionAppConfig) is missing or invalid.");
+
+        var polarionProjects = appConfig.PolarionProjects ??
+                               throw new InvalidOperationException("PolarionProjects configuration section is missing or invalid within PolarionAppConfig.");
+
+        // Validate the loaded project configurations
+        //
+        if (!polarionProjects.Any())
+        {
+            throw new InvalidOperationException("No Polarion projects configured in PolarionProjects section.");
+        }
+        if (polarionProjects.Count(p => p.Default) > 1)
+        {
+            throw new InvalidOperationException("Multiple Polarion projects are marked as Default. Only one can be default.");
+        }
+
+        // Log information about loaded projects
+        //
+        Log.Information("Loaded {Count} Polarion project configurations.", polarionProjects.Count);
+        foreach (var proj in polarionProjects)
+        {
+            Log.Information(" - Project Alias: {Alias}, Server: {Server}, Default: {IsDefault}",
+                proj.ProjectUrlAlias, proj.SessionConfig!.ServerUrl, proj.Default);
+        }
+
+
+        // Allow overriding passwords via the POLARION_PASSWORD environment variable.
+        // When set, applies to all projects as a global fallback.
+        var globalPassword = Environment.GetEnvironmentVariable("POLARION_PASSWORD");
+        if (!string.IsNullOrEmpty(globalPassword))
+        {
+            foreach (var proj in polarionProjects)
+            {
+                if (proj?.SessionConfig != null)
+                {
+                    proj.SessionConfig.Password = globalPassword;
+                    Log.Information("Overrode SessionConfig.Password for project '{ProjectAlias}' from env var 'POLARION_PASSWORD'", proj.ProjectUrlAlias);
+                }
+            }
+        }
+
+        // Add Serilog
+        //
+        builder.Services.AddSerilog();
+
+        // Add API key authentication for REST API endpoints
+        //
+        builder.Services.AddApiKeyAuthentication(builder.Configuration);
+
+        // Add OpenAPI for REST API documentation
+        // Note: OpenAPI requires its own JSON serializer options with reflection support for schema generation
+        //
+        builder.Services.AddOpenApi(options =>
+        {
+            options.AddDocumentTransformer((document, context, cancellationToken) =>
+            {
+                document.Info.Title = "Polarion MCP Server REST API";
+                document.Info.Version = "v1";
+                document.Info.Description = "REST API endpoints compatible with Polarion REST API format";
+
+                // Add security schemes to the document
+                document.Components ??= new();
+                document.Components.SecuritySchemes = new Dictionary<string, OpenApiSecurityScheme>
+                {
+                    // API Key Authentication (header-based)
+                    ["ApiKey"] = new()
+                    {
+                        Type = SecuritySchemeType.ApiKey,
+                        In = ParameterLocation.Header,
+                        Name = "X-API-Key",
+                        Description = "API Key authentication. Obtain your API key from the system administrator."
+                    }
+                };
+
+                // Apply security requirements globally
+                // This makes ALL endpoints require API Key auth by default in the documentation
+                document.SecurityRequirements =
+                [
+                    new()
+                    {
+                        {
+                            new OpenApiSecurityScheme
+                            {
+                                Reference = new() { Type = ReferenceType.SecurityScheme, Id = "ApiKey" }
+                            },
+                            new string[] { }
+                        }
+                    }
+                ];
+
+                return Task.CompletedTask;
+            });
+        });
+
+        // Override the JSON options specifically for OpenAPI schema generation
+        // This uses reflection-based serialization needed for schema generation
+        builder.Services.ConfigureHttpJsonOptions(options =>
+        {
+            // Ensure the OpenAPI context is also available
+            options.SerializerOptions.TypeInfoResolverChain.Insert(0, PolarionRestApiJsonContext.Default);
+            options.SerializerOptions.TypeInfoResolverChain.Insert(0, PolarionConfigJsonContext.Default);
+        });
+
+        // Add the configurations and the factory to the DI container
+        //
+        builder.Services.AddSingleton(polarionProjects); // Register the list of project configurations
+        builder.Services.AddScoped<IPolarionClientFactory, PolarionRemoteClientFactory>(); // For MCP endpoints (uses ProjectUrlAlias)
+        builder.Services.AddScoped<RestApiProjectResolver>(); // For REST API endpoints (uses SessionConfig.ProjectId)
+
+        // Add the McpServer to the DI container
+        //
+        var mcpBuilder = builder.Services
+            .AddMcpServer()
+            .WithHttpTransport(o => o.Stateless = true)
+            .WithTools<PolarionMcpTools.McpTools>();
+
+        // McpAuth defaults off (McpAuth:Enabled unset or false) — AddMcpAuth returns false
+        // without registering anything, so anonymous MCP access is unchanged unless a
+        // deployment opts in explicitly.
+        //
+        var mcpAuthEnabled = builder.AddMcpAuth(mcpBuilder);
+
+        // Default no-op, always registered first — AddRbac (below) Replace()s this with the real
+        // gate only when Rbac:Enabled=true, so a server with the feature off never constructs the
+        // real gate's dependencies.
+        //
+        builder.Services.AddSingleton<IProjectVisibilityGate, NoOpProjectVisibilityGate>();
+
+        // Rbac defaults off (Rbac:Enabled unset or false) — AddRbac returns false without
+        // registering anything beyond the no-op gate above, so behavior is unchanged unless a
+        // deployment opts in explicitly. Requires McpAuth:Enabled=true (enforced by
+        // RbacOptionsValidator at startup) since there is no caller identity to check otherwise.
+        //
+        var rbacEnabled = builder.AddRbac(mcpBuilder);
+
+        // Credential resolution seam. Always registers SharedCredentialResolver as the default
+        // (today's shared-service-account behavior, unchanged) — Credentials:Mode=HttpBroker is
+        // the only branch this ships off, swapping in a per-caller credential resolved from a
+        // configured external broker.
+        //
+        builder.AddCredentials();
+
+        // Test-only seam: lets tests substitute a service (e.g. IProjectVisibilityGate,
+        // IPolarionClientFactory, IIdentityLookup) that AddRbac's own Replace() call would
+        // otherwise clobber if registered via the earlier `configure` callback, which always runs
+        // before AddMcpAuth/AddRbac.
+        //
+        postAuthConfigure?.Invoke(builder);
+
+        // Build the McpServer
+        //
+        var app = builder.Build();
+
+        // Enable forwarded headers to correctly detect HTTPS and host when behind a reverse proxy
+        // This ensures OpenAPI/Scalar shows the correct URL (https://your-domain.com) instead of http://localhost
+        //
+        app.UseForwardedHeaders(new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
+        });
+
+        // UseRouting must run before UseAuthentication/UseAuthorization so that endpoint
+        // metadata (RequireAuthorization) is available by the time authorization middleware
+        // runs — without an explicit UseRouting call here, the implicit routing insertion
+        // point lands at the first Map* call, which is after these two and would silently
+        // turn authorization into a no-op (every request reaches the endpoint unauthenticated).
+        app.UseRouting();
+
+        // Add authentication and authorization middleware
+        //
+        app.UseApiKeyAuthentication();
+
+        // Get version info for logging
+        var assembly = Assembly.GetExecutingAssembly();
+        var version = assembly.GetName().Version?.ToString() ?? "Unknown";
+
+        // Map OpenAPI and Scalar API documentation endpoints
+        //
+        app.MapOpenApi();
+        app.MapScalarApiReference(options =>
+        {
+            options
+                .WithTitle("Polarion MCP Server REST API")
+                .WithTheme(ScalarTheme.DeepSpace)
+                .WithLayout(ScalarLayout.Modern)
+                .WithDarkMode(true)
+                .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
+        });
+        Log.Information("Scalar API documentation available at /scalar/v1");
+
+        // Map health and version endpoints
+        //
+        app.MapHealthEndpoints();
+        Log.Information("Health endpoints mapped at /api/health and /api/version");
+
+        // Map MCP endpoints. RequireAuthorization is applied only when McpAuth is enabled —
+        // schemes are left unpinned so the default-scheme resolution set up by AddMcpAuth
+        // (JwtBearer authenticate / Mcp challenge) is what actually gates this route.
+        //
+        var mcpConventionBuilder = app.MapMcp("{projectId}/mcp");    // /{projectId}/mcp (streamable HTTP)
+        if (mcpAuthEnabled)
+        {
+            mcpConventionBuilder.RequireAuthorization(ApiScopes.McpReadPolicy);
+        }
+
+        // Map REST API endpoints (Polarion REST API compatible)
+        //
+        app.MapWorkItemsEndpoints();
+        app.MapSpacesEndpoints();
+        app.MapDocumentsEndpoints();
+        Log.Information("REST API endpoints mapped at /polarion/rest/v1/projects/{{projectId}}/...");
+        Log.Information("PolarionMcpServer v{Version} built successfully", version);
+
+        return app;
     }
 
     /// <summary>

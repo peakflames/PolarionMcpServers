@@ -15,12 +15,18 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 - RFC 9728 protected-resource metadata, auto-served at `/.well-known/oauth-protected-resource/{alias}/mcp` when `McpAuth:Enabled` is `true`, so OAuth clients can discover the authorization server and required scope
 - REST endpoints are unaffected — `X-API-Key` authentication continues to gate them regardless of `McpAuth:Enabled`
 - An upstream-credential resolution seam for the MCP endpoint (`Credentials:Mode`, default `Shared` — every caller continues to authenticate to Polarion as the configured service account, unchanged). An `HttpBroker` mode is built for a future external credential broker that resolves a per-user Polarion credential from the caller's authenticated identity, off unless explicitly configured
+- `McpAuth:ValidateAudience` (default `true`) and `McpAuth:AllowedClientIds`, an alternative to audience validation for authorization servers that cannot mint a per-resource `aud`: the caller's OAuth client ID (`cid` claim) is checked against an allowlist instead
+- `McpAuth:RequireScope` (default `true`) and `McpAuth:AdvertiseScopes` (default `true`), so a deployment whose authorization server has no custom-scope capability can accept scope-less bearer tokens and stop advertising a scope the server can never grant
+- Per-alias RFC 9728 protected-resource metadata: each served project alias now advertises its own `resource` value (previously every alias advertised the same URL, which a strict OAuth client would reject as a mismatch)
+- `Rbac:IdentitySource` (`Claim`, default, unchanged behavior | `UserInfo`), resolving the caller's identity from the authorization server's `/userinfo` endpoint instead of a token claim, for deployments where the token issuer doesn't stamp a usable identity claim. Single-flight cached per token (`Rbac:UserInfoCacheTtlSeconds`, default 300s), with guardrails rejecting unverified, plus-addressed, or non-canonical email forms
+- `PolarionRemoteMcpServer.Tests/Auth`: a stub-authorization-server-backed test suite covering client-id binding, options validation, email guardrails, `/userinfo` identity resolution, discovery/challenge responses, and token validation
 
 ### Changed
 
 - Bump `ModelContextProtocol` and `ModelContextProtocol.AspNetCore` to 2.1.0
 - MCP HTTP transport now runs stateless (`Stateless = true`)
 - **BREAKING:** `PolarionRemoteMcpServer` now serves MCP only at `/{alias}/mcp`; the legacy `/{alias}` and `/{alias}/sse` mounts are removed — point any client at the `/{alias}/mcp` path
+- **BREAKING:** `McpAuth:ResourceUri` is now the deployment's base URL only (no alias, no `/mcp` suffix) — the per-alias resource is derived at request time. A `ResourceUri` ending in `/mcp` now fails startup validation
 
 ### Removed
 
@@ -31,6 +37,7 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 - An unmapped or misspelled project alias in the MCP route now fails the request instead of silently falling back to serve the default project's data
 - REST API 404 responses for an unknown project no longer list every configured project ID in the response body
 - API key comparison during REST authentication now runs in constant time, closing a timing side-channel
+- The access-audit record's OAuth client ID now falls back to the `cid` claim when no `client_id` claim is present, instead of silently recording an empty value
 
 ## [0.16.0] - 2026-04-28
 
