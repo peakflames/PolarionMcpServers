@@ -21,8 +21,21 @@ public sealed class RbacOptions
     public bool AuditOnly { get; set; }
 
     /// <summary>Which JWT claim resolves to a Polarion identity (by default, the caller's email
-    /// address, joined against the Polarion user's own email field).</summary>
+    /// address, joined against the Polarion user's own email field). Read only when
+    /// <see cref="IdentitySource"/> is <see cref="Rbac.IdentitySource.Claim"/>.</summary>
     public string IdentityClaim { get; set; } = "email";
+
+    /// <summary>Where the identity value comes from. Default (<see cref="Rbac.IdentitySource.Claim"/>)
+    /// is the existing behavior, unchanged. <see cref="Rbac.IdentitySource.UserInfo"/> is for an
+    /// authorization server — an Okta *org* AS above all — that puts no identity claim on its access
+    /// tokens, and instead calls the AS's OIDC <c>/userinfo</c> endpoint with the caller's own
+    /// token.</summary>
+    public IdentitySource IdentitySource { get; set; } = IdentitySource.Claim;
+
+    /// <summary>TTL cap for the <see cref="OktaUserInfoEmailSource"/> cache, only used when
+    /// <see cref="IdentitySource"/> is <see cref="Rbac.IdentitySource.UserInfo"/>. An entry's actual
+    /// lifetime is <c>min(remaining token lifetime, this value)</c>.</summary>
+    public int UserInfoCacheTtlSeconds { get; set; } = 300;
 
     public int IdentityCacheTtlSeconds { get; set; } = 300;
 
