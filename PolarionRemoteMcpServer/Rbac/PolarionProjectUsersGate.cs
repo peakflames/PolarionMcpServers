@@ -9,9 +9,9 @@ namespace PolarionRemoteMcpServer.Rbac;
 
 /// <summary>
 /// Asks Polarion itself, via <c>ProjectWebService.getProjectUsers</c>, whether the resolved
-/// identity is an explicit member of the project mapped to the call's route alias. Verified
-/// against a live Polarion server: membership differs per project rather than returning a
-/// blanket allow, confirming this as a viable primary gate.
+/// identity is an explicit member of the project mapped to the call's route alias. Relies on
+/// <c>getProjectUsers</c> returning per-project membership rather than a server-wide allow; that is
+/// the documented Polarion behavior this gate depends on to be meaningful.
 ///
 /// Membership lists are cached per real Polarion project id (never per alias, in case two aliases
 /// ever map to the same underlying project) with <c>Rbac:MembershipCacheTtlSeconds</c>.
