@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-09-08
+
 ### Added
 
 - Per-caller project-visibility gate (`Rbac:Enabled`, default `false`), authorizing each tool call against the calling user's own Polarion project access instead of the shared service account. Requires `McpAuth:Enabled=true`
@@ -531,7 +533,8 @@ Refactor MCP server architecture and consolidate configuration
 
 Initial release
 
-[Unreleased]: https://github.com/peakflames/PolarionMcpServers/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/peakflames/PolarionMcpServers/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.13.0...v0.14.0
