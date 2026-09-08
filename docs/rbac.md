@@ -101,7 +101,9 @@ else to set for this path.
 
 ## Quick start: RBAC with identity from `/userinfo`
 
-Builds on the [org-style authentication quick start](authentication.md#quick-start-b-an-org-style-authorization-server) — assumes your AS puts no identity claim on its access tokens.
+Builds on the [org-style authentication quick start](authentication.md#quick-start-b-an-org-style-authorization-server) — assumes your AS puts no identity claim on its access tokens, but *can* grant the `openid` and `email` OIDC scopes (that quick start's `ScopesSupported` list). Do not build this on an `AdvertiseScopes=false` variant of that quick start —
+[the two are incompatible](authentication.md#advertisescopesfalse-is-incompatible-with-rbacidentitysourceuserinfo):
+without `openid`/`email` on the token, `/userinfo` returns no usable email and every caller is denied.
 
 ```json
 {
