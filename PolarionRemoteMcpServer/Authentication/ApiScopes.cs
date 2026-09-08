@@ -35,4 +35,13 @@ public static class ApiScopes
         PolarionUpdate,
         PolarionDelete
     };
+
+    /// <summary>
+    /// Authorization policy name gating the MCP endpoint. Deliberately distinct from the REST
+    /// scope policies of the same name above (e.g. <see cref="PolarionRead"/>) — those are pinned
+    /// to the ApiKey scheme, whereas this one is checked via <c>RequireAssertion</c> against
+    /// whatever scheme authenticated the caller (JwtBearer), so pinning a scheme here would break
+    /// MCP OAuth discovery. Both still gate on the same <see cref="PolarionRead"/> scope value.
+    /// </summary>
+    public const string McpReadPolicy = "PolarionMcpRead";
 }

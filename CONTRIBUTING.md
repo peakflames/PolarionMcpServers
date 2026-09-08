@@ -18,7 +18,13 @@ This guide is for developers who want to contribute to or build the Polarion MCP
 
 - Copy `.env.example` to `.env` and set `POLARION_DEFAULT_PROJECT` to your default project alias
 - Configure Polarion projects in `appsettings.json` (base configuration)
-- Override settings locally using `appsettings.Development.json` (gitignored, takes precedence in Development mode)
+- Override settings locally using `appsettings.Development.json` (takes precedence in Development mode)
+- The three tracked `PolarionRemoteMcpServer/appsettings*.json` files (`appsettings.json`,
+  `appsettings.Development.json`, `appsettings.Test.json`) carry **non-secret defaults only** and
+  are the safe copyable reference. Every other `appsettings*.json` variant you create locally with
+  real credentials stays uncommitted — see `.gitignore`'s re-include list
+- For `McpAuth`, `Rbac`, or `Credentials` configuration, see
+  [docs/authentication.md](docs/authentication.md) and [docs/rbac.md](docs/rbac.md)
 
 ## Building the Projects
 
@@ -49,14 +55,14 @@ dotnet publish PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj /t:Publish
 docker push peakflames/polarion-remote-mcp-server:{{VERSION}}
 ```
 
-## Debugging the SSE MCP Server
+## Debugging the MCP Server
 
 1. Start the MCP Server project
 2. From a terminal, run `npx @modelcontextprotocol/inspector`
 3. From your browser, navigate to `http://localhost:{{PORT}}`
 4. Configure the inspector to connect to the server:
-   - TransportType: SSE
-   - URL: http://{{your-server-ip}}:5090/{ProjectUrlAlias}/sse
+   - TransportType: Streamable HTTP
+   - URL: http://{{your-server-ip}}:5090/{ProjectUrlAlias}/mcp
 
 ## Testing REST API Endpoints
 
@@ -112,4 +118,28 @@ Add API consumers to `appsettings.json`:
 
 ## Development Guidelines
 
-For detailed development guidelines including coding conventions, tool implementation patterns, and best practices, see [.clinerules/DEVELOPER_GUIDELINES.md](.clinerules/DEVELOPER_GUIDELINES.md).
+For detailed development guidelines including coding conventions, tool implementation patterns, and best practices, see [CLAUDE.md](CLAUDE.md).
+
+## Testing
+
+Run the automated test suite with:
+
+```bash
+python build.py test
+```
+
+This includes `PolarionRemoteMcpServer.Tests/Auth`, a stub-authorization-server-backed suite
+covering client-id binding, options validation, email guardrails, `/userinfo` identity resolution,
+discovery/challenge responses, and token validation for the `McpAuth`/`Rbac` features documented in
+[docs/authentication.md](docs/authentication.md) and [docs/rbac.md](docs/rbac.md).
+
+## Documenting `McpAuth`, `Rbac`, and `Credentials` changes
+
+When adding or changing an `McpAuth:`, `Rbac:`, or `Credentials:` configuration key:
+
+- Update [docs/authentication.md](docs/authentication.md) or [docs/rbac.md](docs/rbac.md) —
+  whichever section owns the key — including its reference table and, if applicable, its
+  startup-validation-error table.
+- Update `CHANGELOG.md` under `[Unreleased]` per
+  [docs/changelog-generation-rules.md](docs/changelog-generation-rules.md). In-repo documentation
+  changes themselves are excluded from the changelog by those same rules.

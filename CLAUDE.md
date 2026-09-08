@@ -124,7 +124,7 @@ python build.py log --tail 100 --level error  # Combine options
 
 ### URLs (when running)
 - http://localhost:5090 - Landing page
-- http://localhost:5090/mcp - MCP endpoint (for AI tool integration)
+- http://localhost:5090/{alias}/mcp - MCP endpoint, per-project alias (for AI tool integration)
 
 ### Key Behaviors
 - **`build`** auto-stops any running instance (prevents Windows file lock errors)
@@ -373,22 +373,25 @@ When working on this project as an AI assistant:
 
 ## ⚠️ CRITICAL: appsettings.json Security Rule
 
-**NEVER commit, add, reset, checkout, discard, or modify `PolarionRemoteMcpServer/appsettings.json` in any git operation.**
-**NEVER commit, add, reset, checkout, discard, or modify `PolarionRemoteMcpServer/appsettings.Development.json` in any git operation.**
+The three tracked files — `PolarionRemoteMcpServer/appsettings.json`,
+`PolarionRemoteMcpServer/appsettings.Development.json`, and
+`PolarionRemoteMcpServer/appsettings.Test.json` — **may contain only non-secret defaults**
+(placeholder hosts, placeholder passwords, the `starlight`/`octopus`/`grogu` example projects).
+They are the safe, copyable reference for what `McpAuth`, `Rbac`, `Credentials`, and
+`PolarionProjects` look like.
 
-This file contains sensitive credentials (usernames, passwords, server URLs) that must be protected at all costs. The file should be treated as if it doesn't exist when performing any git operations:
+**Every other `PolarionRemoteMcpServer/appsettings*.json` variant is never committed.** `.gitignore`
+ignores `PolarionRemoteMcpServer/appsettings*.json` and re-includes only the three files above by
+exact name — any locally filled-in variant with real credentials stays outside that re-include list
+and must never be force-added.
 
-- ❌ NEVER use `git add PolarionRemoteMcpServer/appsettings.json`
-- ❌ NEVER use `git add PolarionRemoteMcpServer/appsettings.Development.json`
-- ❌ NEVER include it in commits
-- ❌ NEVER stage changes to this file
-- ❌ NEVER reset or checkout this file
-- ❌ NEVER discard changes to this file through git
-
-**During release processes and any git operations:**
-- Always explicitly exclude this file from staging
-- If git status shows it as modified, ignore it completely
-- Only stage and commit the specific files needed for the task
-- Use explicit file paths in `git add` commands rather than wildcards that might accidentally include it
+- ❌ NEVER add a real Polarion server URL, username, password, API key, or project ID to one of the
+  three tracked files
+- ❌ NEVER `git add -f` an ignored `appsettings*.json` variant
+- ✅ Always use environment variables for credentials and deployment-specific values:
+  `POLARION_PASSWORD`, `McpAuth__*`, `Rbac__*`, `Credentials__*`
+- Before staging any of the three tracked files, read the diff and confirm it introduces no real
+  credential, hostname, or project ID — then stage it by its explicit file path, never a wildcard
+- Use explicit file paths in `git add` commands rather than wildcards
 
 **Violation of this rule could expose sensitive credentials and compromise security.**

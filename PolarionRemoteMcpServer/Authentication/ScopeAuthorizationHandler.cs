@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using PolarionRemoteMcpServer.Auth;
 using Serilog;
 
 namespace PolarionRemoteMcpServer.Authentication;
@@ -28,10 +29,11 @@ public class ScopeAuthorizationHandler : AuthorizationHandler<ScopeRequirement>
         AuthorizationHandlerContext context,
         ScopeRequirement requirement)
     {
-        // Get all scope claims
-        var scopeClaims = context.User.FindAll("scope").Select(c => c.Value).ToList();
-
-        if (scopeClaims.Contains(requirement.Scope))
+        // Routed through ScopeClaimHelper rather than a raw FindAll("scope") check so this
+        // handler also works if it is ever reached by a JWT principal, whose scopes may arrive as
+        // a single space-delimited "scope" claim or as discrete "scp" claims instead of the
+        // ApiKey scheme's one-claim-per-scope shape.
+        if (ScopeClaimHelper.HasScope(context.User, requirement.Scope))
         {
             Log.Debug("Authorization: User has required scope '{Scope}'", requirement.Scope);
             context.Succeed(requirement);
@@ -39,6 +41,7 @@ public class ScopeAuthorizationHandler : AuthorizationHandler<ScopeRequirement>
         else
         {
             var consumerId = context.User.FindFirst("consumer_id")?.Value ?? "unknown";
+            var scopeClaims = ScopeClaimHelper.GetScopes(context.User).ToList();
             Log.Warning("Authorization: Consumer '{ConsumerId}' missing required scope '{Scope}'. Has scopes: [{Scopes}]",
                 consumerId, requirement.Scope, string.Join(", ", scopeClaims));
         }
