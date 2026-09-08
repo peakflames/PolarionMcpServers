@@ -489,7 +489,12 @@ dist/
 tmp/
 .polarion-mcp.pid
 .claude/settings.local.json
-PolarionRemoteMcpServer/appsettings.Development.json
+
+# Local credentials — never commit a filled-in appsettings for the remote server
+PolarionRemoteMcpServer/appsettings*.json
+!PolarionRemoteMcpServer/appsettings.json
+!PolarionRemoteMcpServer/appsettings.Development.json
+!PolarionRemoteMcpServer/appsettings.Test.json
 
 # Test settings with credentials (must not be committed)
 **/testsettings.json
