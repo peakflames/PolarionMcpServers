@@ -94,7 +94,10 @@ this metadata URL, instead of succeeding.
 ## Quick start B: an org-style authorization server
 
 Assumes your AS always stamps `aud` with its own issuer (never a per-resource value) and cannot
-grant a custom scope — the shape of an Okta **org** authorization server.
+grant a custom scope — the shape of an Okta **org** authorization server. This is also the shape
+[RBAC's `/userinfo` identity source](rbac.md#quick-start-rbac-with-identity-from-userinfo) builds
+on, so it advertises the OIDC scopes the AS *can* grant (`openid email profile offline_access`)
+rather than advertising nothing:
 
 ```json
 {
@@ -105,7 +108,7 @@ grant a custom scope — the shape of an Okta **org** authorization server.
     "ValidateAudience": false,
     "AllowedClientIds": [ "0oaEXAMPLECLIENTID" ],
     "RequireScope": false,
-    "AdvertiseScopes": false
+    "ScopesSupported": [ "openid", "email", "profile", "offline_access" ]
   }
 }
 ```
@@ -121,10 +124,22 @@ grant a custom scope — the shape of an Okta **org** authorization server.
 > scope no longer limits anything. Pair this with [RBAC](rbac.md), or every authenticated caller
 > gets the full reach of whatever upstream Polarion credential the call resolves to.
 
-If your AS *can* grant OIDC scopes, just none custom to this server, set `ScopesSupported` to what
-it can actually grant (e.g. `openid email profile offline_access`) instead of
-`AdvertiseScopes=false` — see [`ScopesSupported` replaces, not appends](#scopessupported-replaces-not-appends)
-below.
+`ScopesSupported` here **replaces** the default (see
+[`ScopesSupported` replaces, not appends](#scopessupported-replaces-not-appends) below), so a
+client following discovery requests exactly these four OIDC scopes — never the unreachable
+`polarion:read`.
+
+### `AdvertiseScopes=false` is incompatible with `Rbac:IdentitySource=UserInfo`
+
+If your AS grants **no** OIDC scopes at all — not even `openid`/`email` — set `AdvertiseScopes` to
+`false` instead of the `ScopesSupported` list above, so discovery advertises nothing a client could
+request. But do not combine this with [`Rbac:IdentitySource=UserInfo`](rbac.md#identitysourceuserinfo):
+an OIDC `/userinfo` endpoint only returns an `email` claim for a token whose grant actually included
+the `openid` and `email` scopes. A client following `AdvertiseScopes=false` discovery requests no
+scope at all, so the resulting token has neither — every `/userinfo` call then returns no usable
+email, and RBAC denies every caller. If you need `IdentitySource=UserInfo`, your AS must be able to
+grant at least `openid` and `email`, in which case use the `ScopesSupported` shape above, not
+`AdvertiseScopes=false`.
 
 ## Configuration reference: `McpAuth`
 
