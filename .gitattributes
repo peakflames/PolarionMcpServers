@@ -1,0 +1,31 @@
+# Normalize line endings across Windows/Mac/Linux checkouts. Git stores
+# everything as LF internally and checks out LF by default; override only
+# where a tool requires a specific ending.
+* text=auto eol=lf
+
+# Visual Studio rewrites .sln files with CRLF on save regardless of platform
+# settings; keep it pinned to CRLF (its committed format) to avoid churn.
+*.sln text eol=crlf
+
+# Explicit text types (redundant with `text=auto` for most, but documents intent)
+*.cs text diff=csharp
+*.csproj text
+*.json text
+*.md text
+*.py text
+*.yml text
+*.yaml text
+*.config text
+.gitignore text
+.gitattributes text
+
+# Binary types — never diff or normalize line endings
+*.dll binary
+*.exe binary
+*.pdb binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.zip binary

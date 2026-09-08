@@ -23,6 +23,9 @@ public sealed partial class McpTools
 
     /// <summary>
     /// Gets the current project configuration based on the project ID from the client factory.
+    /// No fallback to the default project — an unmapped alias returns null, matching
+    /// <see cref="IPolarionClientFactory.CreateClientAsync"/>'s fail-closed contract, since
+    /// callers already reached this point via a successfully created client for the same alias.
     /// </summary>
     /// <returns>The current project configuration, or null if not found.</returns>
     private PolarionProjectConfig? GetCurrentProjectConfig()
@@ -30,14 +33,13 @@ public sealed partial class McpTools
         // Get the current project ID from the client factory
         var clientFactory = _serviceProvider.GetRequiredService<IPolarionClientFactory>();
         string? projectId = clientFactory.ProjectId;
-        
+
         // Get all project configurations
         var projectConfigs = _serviceProvider.GetRequiredService<List<PolarionProjectConfig>>();
-        
+
         // Find the matching configuration
-        return projectConfigs.FirstOrDefault(p => 
-            p.ProjectUrlAlias.Equals(projectId, StringComparison.OrdinalIgnoreCase)) 
-            ?? projectConfigs.FirstOrDefault(p => p.Default);
+        return projectConfigs.FirstOrDefault(p =>
+            p.ProjectUrlAlias.Equals(projectId, StringComparison.OrdinalIgnoreCase));
     }
 
 }

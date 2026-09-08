@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PolarionRemoteMcpServer", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PolarionRemoteMcpServer.Tests", "PolarionRemoteMcpServer.Tests\PolarionRemoteMcpServer.Tests.csproj", "{D4E8F5A2-1B3C-4D7E-9A6F-8C5B2E4D3F1A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StubAuthorizationServer", "StubAuthorizationServer\StubAuthorizationServer.csproj", "{7CB9120B-CDCB-446D-9CA3-D1BFEAB2683C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,6 +71,18 @@ Global
 		{D4E8F5A2-1B3C-4D7E-9A6F-8C5B2E4D3F1A}.Release|x64.Build.0 = Release|Any CPU
 		{D4E8F5A2-1B3C-4D7E-9A6F-8C5B2E4D3F1A}.Release|x86.ActiveCfg = Release|Any CPU
 		{D4E8F5A2-1B3C-4D7E-9A6F-8C5B2E4D3F1A}.Release|x86.Build.0 = Release|Any CPU
+		{7CB9120B-CDCB-446D-9CA3-D1BFEAB2683C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7CB9120B-CDCB-446D-9CA3-D1BFEAB2683C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7CB9120B-CDCB-446D-9CA3-D1BFEAB2683C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{7CB9120B-CDCB-446D-9CA3-D1BFEAB2683C}.Debug|x64.Build.0 = Debug|Any CPU
+		{7CB9120B-CDCB-446D-9CA3-D1BFEAB2683C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{7CB9120B-CDCB-446D-9CA3-D1BFEAB2683C}.Debug|x86.Build.0 = Debug|Any CPU
+		{7CB9120B-CDCB-446D-9CA3-D1BFEAB2683C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7CB9120B-CDCB-446D-9CA3-D1BFEAB2683C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7CB9120B-CDCB-446D-9CA3-D1BFEAB2683C}.Release|x64.ActiveCfg = Release|Any CPU
+		{7CB9120B-CDCB-446D-9CA3-D1BFEAB2683C}.Release|x64.Build.0 = Release|Any CPU
+		{7CB9120B-CDCB-446D-9CA3-D1BFEAB2683C}.Release|x86.ActiveCfg = Release|Any CPU
+		{7CB9120B-CDCB-446D-9CA3-D1BFEAB2683C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
