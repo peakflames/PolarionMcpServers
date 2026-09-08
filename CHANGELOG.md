@@ -19,7 +19,12 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 - `McpAuth:RequireScope` (default `true`) and `McpAuth:AdvertiseScopes` (default `true`), so a deployment whose authorization server has no custom-scope capability can accept scope-less bearer tokens and stop advertising a scope the server can never grant
 - Per-alias RFC 9728 protected-resource metadata: each served project alias now advertises its own `resource` value (previously every alias advertised the same URL, which a strict OAuth client would reject as a mismatch)
 - `Rbac:IdentitySource` (`Claim`, default, unchanged behavior | `UserInfo`), resolving the caller's identity from the authorization server's `/userinfo` endpoint instead of a token claim, for deployments where the token issuer doesn't stamp a usable identity claim. Single-flight cached per token (`Rbac:UserInfoCacheTtlSeconds`, default 300s), with guardrails rejecting unverified, plus-addressed, or non-canonical email forms
-- `PolarionRemoteMcpServer.Tests/Auth`: a stub-authorization-server-backed test suite covering client-id binding, options validation, email guardrails, `/userinfo` identity resolution, discovery/challenge responses, and token validation
+- `Rbac:MembershipCacheTtlSeconds` (default 120s), the per-project membership cache TTL — and therefore how long a Polarion project member removed upstream keeps MCP access after removal
+- `Rbac:IdentityCacheTtlSeconds` (default 300s), the cache TTL for a resolved caller identity
+- `Rbac:MaxCacheEntries` (default 20000), the shared capacity bound across every RBAC cache
+- `McpAuth:MetadataAddress`, an explicit override for the authorization server's OIDC discovery-document URL
+- `McpAuth:ClockSkewSeconds` (default 30s, range 0–300), the allowed clock drift for token expiry checks
+- `Credentials:BrokerUrl`, `Credentials:BrokerApiKey`, and `Credentials:BrokerTimeoutSeconds` (default 10s, range 1–120), configuration for the `Credentials:Mode=HttpBroker` upstream-credential resolver
 
 ### Changed
 
@@ -27,6 +32,7 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 - MCP HTTP transport now runs stateless (`Stateless = true`)
 - **BREAKING:** `PolarionRemoteMcpServer` now serves MCP only at `/{alias}/mcp`; the legacy `/{alias}` and `/{alias}/sse` mounts are removed — point any client at the `/{alias}/mcp` path
 - **BREAKING:** `McpAuth:ResourceUri` is now the deployment's base URL only (no alias, no `/mcp` suffix) — the per-alias resource is derived at request time. A `ResourceUri` ending in `/mcp` now fails startup validation
+- `McpAuth:ScopesSupported` now replaces the default scope list rather than appending to it
 
 ### Removed
 
