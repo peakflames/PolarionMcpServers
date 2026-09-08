@@ -42,13 +42,18 @@ public static class AuthenticationExtensions
         })
         .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(ApiKeyScheme, options => { });
 
-        // Add authorization with scope-based policies
+        // Add authorization with scope-based policies. Pinned to the ApiKey scheme explicitly —
+        // once McpAuth is enabled it changes the *default* authenticate scheme to JwtBearer so MCP
+        // discovery works (see Auth/AuthenticationServiceCollectionExtensions.cs), and without this
+        // pin these REST policies would silently start authenticating against Bearer tokens instead
+        // of the X-API-Key header.
         services.AddAuthorization(options =>
         {
             foreach (var scope in ApiScopes.All)
             {
                 options.AddPolicy(scope, policy =>
                 {
+                    policy.AddAuthenticationSchemes(ApiKeyScheme);
                     policy.RequireAuthenticatedUser();
                     policy.Requirements.Add(new ScopeRequirement(scope));
                 });

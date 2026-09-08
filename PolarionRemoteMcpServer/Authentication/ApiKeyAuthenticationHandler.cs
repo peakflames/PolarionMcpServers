@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
@@ -36,6 +38,22 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAuthentic
         _consumersConfig = consumersConfig;
     }
 
+    private static bool FixedTimeEquals(string configuredKey, string providedKey)
+    {
+        var configuredBytes = Encoding.UTF8.GetBytes(configuredKey);
+        var providedBytes = Encoding.UTF8.GetBytes(providedKey);
+
+        // Length differences are safe to short-circuit on: a length mismatch reveals nothing about
+        // key content, only that it's a different length, which CryptographicOperations.FixedTimeEquals
+        // requires equal-length spans to compare in the first place.
+        if (configuredBytes.Length != providedBytes.Length)
+        {
+            return false;
+        }
+
+        return CryptographicOperations.FixedTimeEquals(configuredBytes, providedBytes);
+    }
+
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         // Check for API key header
@@ -52,9 +70,11 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAuthentic
             return Task.FromResult(AuthenticateResult.NoResult());
         }
 
-        // Find matching consumer by API key
+        // Find matching consumer by API key. Compared in constant time so response latency
+        // can't be used to brute-force a valid key one byte at a time; a plain == short-circuits
+        // on the first mismatched byte.
         var matchingConsumer = _consumersConfig.Consumers
-            .FirstOrDefault(kvp => kvp.Value.ApplicationKey == providedApiKey);
+            .FirstOrDefault(kvp => FixedTimeEquals(kvp.Value.ApplicationKey, providedApiKey));
 
         if (matchingConsumer.Key == null)
         {

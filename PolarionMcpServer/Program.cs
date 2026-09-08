@@ -209,13 +209,17 @@ public class Program
             builder.Services.AddSingleton(polarionProjects); // Register the list of project configurations
             
             // Register the factory with the command line project alias
-            builder.Services.AddScoped<IPolarionClientFactory>(sp => 
+            builder.Services.AddScoped<IPolarionClientFactory>(sp =>
                 new PolarionStdioClientFactory(
                     polarionProjects,
                     sp.GetRequiredService<ILogger<PolarionStdioClientFactory>>(),
                     projectAlias
                 )
             );
+
+            // Permanently no-op — the stdio host has no HTTP identity to resolve, so there is
+            // nothing for a project-visibility gate to check.
+            builder.Services.AddSingleton<PolarionMcpTools.Rbac.IProjectVisibilityGate, PolarionMcpTools.Rbac.NoOpProjectVisibilityGate>();
 
             // Add the McpServer to the DI container
             //
