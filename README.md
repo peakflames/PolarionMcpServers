@@ -4,19 +4,20 @@ This repository contains Model Context Protocol (MCP) server implementations for
 
 MCP Tools are available for Polarion work items, including:
 
-- `get_text_for_workitems_by_id`: Gets the main text content for specified WorkItem IDs.
-- `get_text_for_workitem_at_revision`: Gets the text content for a single WorkItem at a specific revision.
-- `get_details_for_workitems`: Gets detailed information for specified WorkItem IDs including status, type, assignee, custom fields, and linked work items.
-- `get_documents`: Lists documents in the project, optionally filtered by title.
-- `get_documents_by_space_names`: Lists documents within specified space names.
-- `get_space_names`: Lists all available space names in the project.
-- `get_sections_in_document`: Gets the list of sections in a document.
-- `get_section_content_for_document`: Gets the content of a specific section in a document.
-- `search_workitems_in_document`: Searches for WorkItems within a document based on text criteria.
-- `list_available_custom_fields_for_workitem_types`: Lists all available custom fields for specific WorkItem types.
-- `list_available_workitem_types`: Lists all WorkItem types available in the project.
-- `get_revisions_list_for_workitem`: Gets the list of revision IDs for a specific work item, ordered from newest to oldest.
-- `get_revisions_content_for_workitem`: Gets the content of a work item at different revisions, including title, status, description, and other standard fields.
+- `get_document_info`: Gets metadata and custom fields for a Polarion Document.
+- `get_document_outline`: Gets all section headings (table of contents) within a Polarion Document.
+- `get_document_revision_history`: Gets the revision history for a Polarion document/module.
+- `get_document_section`: Gets content for a specific section heading and its sub-headings in a Polarion Document.
+- `get_workitem`: Gets the text content of a WorkItem. Optionally retrieves a specific revision.
+- `get_workitem_details`: Gets detailed information for WorkItems including standard fields, custom fields, and linked work items. Supports traceability with recursive link following.
+- `get_workitem_history`: Gets the revision history for a WorkItem including content at each revision.
+- `get_workitems_in_module`: Query work items from a Polarion module/document using SQL against the REL_MODULE_WORKITEM relationship.
+- `list_custom_fields`: Lists available custom fields for a specific WorkItem type.
+- `list_documents`: Lists all Documents in the Polarion Project. Optionally filter by space name and/or title.
+- `list_spaces`: Lists all Space names in the Polarion project.
+- `list_workitem_types`: Lists all configured WorkItem types for the current project.
+- `search_in_document`: Searches a Polarion Document for work items matching search terms.
+- `search_workitems`: Searches for work items across the entire Polarion project using text content.
 
 ## Projects
 
