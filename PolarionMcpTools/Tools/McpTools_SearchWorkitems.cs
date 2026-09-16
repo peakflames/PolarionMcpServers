@@ -9,8 +9,13 @@ public sealed partial class McpTools
                  "Returns matching work items as Markdown.")]
     public async Task<string> SearchWorkitems(
         [Description("Search terms to find in work items. " +
-                     "Examples: 'HVBIT' (single term), 'HVBIT timeout' (either term - OR logic), " +
-                     "'HVBIT AND timeout' (both terms required), '\"HVBIT timeout\"' (exact phrase).")]
+                     "Simple terms: 'HVBIT' (single term), 'HVBIT timeout' (either term - OR logic), " +
+                     "'HVBIT AND timeout' (both terms required), '\"HVBIT timeout\"' (exact phrase). " +
+                     "Raw Lucene is also accepted and passed through verbatim when it contains a " +
+                     "field-scoped filter (e.g. 'category.KEY:MyCategory'), a boolean " +
+                     "operator (AND/OR/NOT), or parenthesized grouping - e.g. " +
+                     "'category.KEY:MyCategory AND (timeout)' or " +
+                     "'type:requirement AND NOT HAS_VALUE:rationale'.")]
         string searchQuery,
 
         [Description("Optional comma-separated list of work item types to filter (e.g., 'requirement,testCase'). Leave empty for all types.")]
@@ -126,7 +131,7 @@ public sealed partial class McpTools
     /// Builds a Lucene query from user inputs.
     /// Combines text search with optional type and status filters.
     /// </summary>
-    private static string BuildLuceneQuery(string searchQuery, string? itemTypes, string? statusFilter)
+    internal static string BuildLuceneQuery(string searchQuery, string? itemTypes, string? statusFilter)
     {
         var queryParts = new List<string>();
 
@@ -169,9 +174,10 @@ public sealed partial class McpTools
 
     /// <summary>
     /// Builds the text search portion of the Lucene query.
-    /// Supports exact phrases, AND logic, and OR logic (default).
+    /// Supports exact phrases, raw Lucene passthrough,
+    /// AND logic, and OR logic (default).
     /// </summary>
-    private static string BuildTextSearchQuery(string searchQuery)
+    internal static string BuildTextSearchQuery(string searchQuery)
     {
         var trimmed = searchQuery.Trim();
 
@@ -181,8 +187,11 @@ public sealed partial class McpTools
             return trimmed;
         }
 
-        // AND logic: HVBIT AND timeout
-        if (trimmed.Contains(" AND ", StringComparison.OrdinalIgnoreCase))
+        // Raw Lucene passthrough: when the caller supplies real Lucene the
+        // transport already accepts - a field-scoped filter, a boolean operator (AND/OR/NOT),
+        // or parenthesized grouping - pass it through verbatim instead of re-tokenizing plain
+        // words into (a OR b). This also covers the legacy "... AND ..." case.
+        if (LooksLikeRawLucene(trimmed))
         {
             return trimmed;
         }
@@ -210,6 +219,18 @@ public sealed partial class McpTools
     private static readonly Regex SafeIdentifierRegex =
         new(@"^[A-Za-z0-9_.\-]+$", RegexOptions.Compiled);
 
+    // Whole-word, case-sensitive Lucene boolean operators (Lucene operators are uppercase;
+    // lowercase "and"/"or"/"not" are treated as search terms).
+    private static readonly Regex BooleanOperatorRegex =
+        new(@"(^|\s)(AND|OR|NOT)(\s|$)", RegexOptions.Compiled);
+
+    // Field-scoped filter token: at a start/whitespace boundary, a word (optionally dotted,
+    // e.g. category.KEY) immediately followed by ':' and a non-space, non-'/' value. The
+    // leading boundary and non-'/' value class keep out URLs (http://...); the [A-Za-z_]
+    // first char excludes numeric time/ratio tokens like 12:30 or 3:1.
+    private static readonly Regex FieldScopedRegex =
+        new(@"(^|\s)[A-Za-z_][A-Za-z0-9_.]*:[^\s/]", RegexOptions.Compiled);
+
     /// <summary>
     /// Detects whether a search string embeds a Polarion <c>SQL:(...)</c> filter, which
     /// executes SQL against the endpoint's credential and must only run through the opt-in
@@ -217,6 +238,44 @@ public sealed partial class McpTools
     /// </summary>
     internal static bool ContainsSqlFilter(string query)
         => !string.IsNullOrWhiteSpace(query) && SqlFilterRegex.IsMatch(query);
+
+    /// <summary>
+    /// Detects whether a search string is already raw Lucene that should be passed through to
+    /// the transport verbatim rather than re-tokenized into an OR of terms. Signals: a boolean
+    /// operator (AND/OR/NOT), parenthesized grouping, or a field-scoped filter (field:value).
+    ///
+    /// A <c>SQL:</c> filter is deliberately NOT a passthrough signal - it is blocked upstream
+    /// by callers (see <see cref="ContainsSqlFilter"/>) so SQL can only ever run through the
+    /// opt-in tool.
+    /// </summary>
+    internal static bool LooksLikeRawLucene(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return false;
+        }
+
+        // Boolean operators: "a AND b", "a OR b", "NOT x".
+        if (BooleanOperatorRegex.IsMatch(query))
+        {
+            return true;
+        }
+
+        // Parenthesized grouping / composition: "(timeout)".
+        if (query.Contains('(') && query.Contains(')'))
+        {
+            return true;
+        }
+
+        // Field-scoped filter: "category.KEY:MyCategory". URLs are excluded (the
+        // value class rejects '/'), so "http://x" does not trip passthrough.
+        if (!query.Contains("//") && FieldScopedRegex.IsMatch(query))
+        {
+            return true;
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// True when a caller-supplied Lucene fragment cannot re-associate the project.id
