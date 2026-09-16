@@ -223,10 +223,15 @@ public class Program
 
             // Add the McpServer to the DI container
             //
-            builder.Services
+            var mcpBuilder = builder.Services
                 .AddMcpServer()
                 .WithStdioServerTransport()
                 .WithTools<PolarionMcpTools.McpTools>();
+
+            // Opt-in SQL query tool: registered only when SqlQueryTool:Enabled=true.
+            var sqlToolEnabled = mcpBuilder.AddSqlQueryTool(builder.Configuration);
+            Log.Information("SQL query tool ({Key}): {State}",
+                SqlQueryToolRegistration.EnabledKey, sqlToolEnabled ? "enabled" : "disabled");
 
             // Build and Run the McpServer
             //

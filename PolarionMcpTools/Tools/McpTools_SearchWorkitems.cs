@@ -355,7 +355,7 @@ public sealed partial class McpTools
     /// <summary>
     /// Returns the default list of fields to retrieve from Polarion.
     /// </summary>
-    private static List<string> GetDefaultFieldList()
+    internal static List<string> GetDefaultFieldList()
     {
         return new List<string>
         {
@@ -368,7 +368,7 @@ public sealed partial class McpTools
     /// Formats search results as markdown.
     /// </summary>
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
-    private static string FormatResults(
+    internal static string FormatResults(
         WorkItem[] workItems,
         string searchQuery,
         string luceneQuery,
