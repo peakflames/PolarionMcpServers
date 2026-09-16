@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+### Security
+
+- `search_workitems` and the REST search endpoint now reject SQL filters, unbalanced Lucene grouping, and non-identifier type/status values, closing a path by which a query could escape the project scope the server applies
+
 ## [0.17.0] - 2026-09-08
 
 ### Added

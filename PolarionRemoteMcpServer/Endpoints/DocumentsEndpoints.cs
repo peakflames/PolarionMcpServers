@@ -301,6 +301,13 @@ public static class DocumentsEndpoints
                 List<string>? typeList = null;
                 if (!string.IsNullOrWhiteSpace(types))
                 {
+                    // Containment: only identifier characters may reach the query filter.
+                    if (!McpTools.AreCsvTokensSafeIdentifiers(types))
+                    {
+                        return CreateErrorResponse("400", "Bad Request",
+                            "types may only contain identifier characters (letters, digits, '_', '.', '-').");
+                    }
+
                     typeList = types.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
                 }
 

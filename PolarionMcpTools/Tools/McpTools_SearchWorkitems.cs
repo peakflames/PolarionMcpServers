@@ -31,6 +31,29 @@ public sealed partial class McpTools
             return "ERROR: (100) Search query cannot be empty.";
         }
 
+        // Containment: the server scopes every search to the route project by
+        // AND-ing project.id onto the caller's Lucene. A SQL:(...) filter, an unbalanced
+        // parenthesis/quote, or a non-identifier type/status value can each re-associate or
+        // escape that project.id suffix and read another project's data. Reject all three
+        // before the query is built or sent.
+        if (ContainsSqlFilter(searchQuery))
+        {
+            return "ERROR: (105) SQL filters (SQL:(...)) are not permitted through search_workitems. " +
+                   "Use search_workitems_sql, which validates SQL before sending it and is available " +
+                   "only when the server operator has enabled it.";
+        }
+
+        if (!HasBalancedLuceneGrouping(searchQuery))
+        {
+            return "ERROR: (106) Unbalanced parentheses or quotes in search query.";
+        }
+
+        if (!AreCsvTokensSafeIdentifiers(itemTypes) || !AreCsvTokensSafeIdentifiers(statusFilter))
+        {
+            return "ERROR: (107) itemTypes and statusFilter may only contain identifier characters " +
+                   "(letters, digits, '_', '.', '-').";
+        }
+
         // Cap maxResults to valid range
         if (maxResults < 1) maxResults = 1;
         if (maxResults > 500) maxResults = 500;
@@ -172,6 +195,102 @@ public sealed partial class McpTools
         }
 
         return $"({string.Join(" OR ", terms)})";
+    }
+
+    // A leading "SQL:" filter token (start, whitespace, or open-paren boundary).
+    // Polarion resolves SQL:(...) as a Lucene filter that executes raw SQL, so it must
+    // never travel the plain-search path — it is owned exclusively by the opt-in
+    // search_workitems_sql tool.
+    private static readonly Regex SqlFilterRegex =
+        new(@"(^|\s|\()SQL\s*:", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // An identifier safe to interpolate into a type:/status: field filter: letters,
+    // digits, and the '_', '.', '-' characters real Polarion enum ids use. Anything
+    // else (spaces, parentheses, quotes, ':') could re-open Lucene grouping.
+    private static readonly Regex SafeIdentifierRegex =
+        new(@"^[A-Za-z0-9_.\-]+$", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Detects whether a search string embeds a Polarion <c>SQL:(...)</c> filter, which
+    /// executes SQL against the endpoint's credential and must only run through the opt-in
+    /// <c>search_workitems_sql</c> tool.
+    /// </summary>
+    internal static bool ContainsSqlFilter(string query)
+        => !string.IsNullOrWhiteSpace(query) && SqlFilterRegex.IsMatch(query);
+
+    /// <summary>
+    /// True when a caller-supplied Lucene fragment cannot re-associate the project.id
+    /// scope the server appends: parenthesis depth never goes negative and ends at zero,
+    /// and quotes are balanced. Parentheses inside a phrase (between <c>"</c>) are literal
+    /// text and are ignored. Escaped quotes/parens are not modeled, which errs toward
+    /// rejection (acceptable).
+    /// </summary>
+    internal static bool HasBalancedLuceneGrouping(string query)
+    {
+        if (string.IsNullOrEmpty(query))
+        {
+            return true;
+        }
+
+        var depth = 0;
+        var inPhrase = false;
+        foreach (var c in query)
+        {
+            if (c == '"')
+            {
+                inPhrase = !inPhrase;
+                continue;
+            }
+
+            if (inPhrase)
+            {
+                continue;
+            }
+
+            if (c == '(')
+            {
+                depth++;
+            }
+            else if (c == ')')
+            {
+                depth--;
+                if (depth < 0)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return depth == 0 && !inPhrase;
+    }
+
+    /// <summary>
+    /// True when <paramref name="value"/> contains only identifier characters and is safe
+    /// to interpolate into a <c>type:</c>/<c>status:</c> Lucene filter.
+    /// </summary>
+    internal static bool IsSafeIdentifier(string? value)
+        => !string.IsNullOrEmpty(value) && SafeIdentifierRegex.IsMatch(value);
+
+    /// <summary>
+    /// True when every comma-separated token in <paramref name="csv"/> is a safe identifier.
+    /// An empty/absent value contributes no filter and is treated as safe.
+    /// </summary>
+    internal static bool AreCsvTokensSafeIdentifiers(string? csv)
+    {
+        if (string.IsNullOrWhiteSpace(csv))
+        {
+            return true;
+        }
+
+        foreach (var token in csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (!IsSafeIdentifier(token))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>

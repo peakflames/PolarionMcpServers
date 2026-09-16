@@ -461,6 +461,28 @@ public static class WorkItemsEndpoints
             return CreateErrorResponse("400", "Bad Request", "query parameter is required.");
         }
 
+        // Containment: mirror the search_workitems MCP tool. The server scopes
+        // every search to the route project by AND-ing project.id onto the caller's Lucene;
+        // a SQL:(...) filter, unbalanced grouping, or a non-identifier type/status value can
+        // re-associate or escape that scope. Reject all three before building the query.
+        if (McpTools.ContainsSqlFilter(query))
+        {
+            return CreateErrorResponse("400", "Bad Request",
+                "SQL filters (SQL:(...)) are not permitted on this endpoint.");
+        }
+
+        if (!McpTools.HasBalancedLuceneGrouping(query))
+        {
+            return CreateErrorResponse("400", "Bad Request",
+                "Unbalanced parentheses or quotes in query.");
+        }
+
+        if (!McpTools.AreCsvTokensSafeIdentifiers(types) || !McpTools.AreCsvTokensSafeIdentifiers(status))
+        {
+            return CreateErrorResponse("400", "Bad Request",
+                "types and status may only contain identifier characters (letters, digits, '_', '.', '-').");
+        }
+
         // Clamp pageSize
         if (pageSize < 1) pageSize = 1;
         if (pageSize > 500) pageSize = 500;
