@@ -8,6 +8,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Expose internal query-builder / guard helpers to the test project so the
+         Lucene-containment and SQL-guard logic can be unit-tested directly. -->
+    <InternalsVisibleTo Include="PolarionRemoteMcpServer.Tests" />
+    <!-- Expose the shared query helpers to the REST server so its endpoints apply the
+         same containment checks as the MCP tool instead of a divergent copy. -->
+    <InternalsVisibleTo Include="PolarionRemoteMcpServer" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Swap to ProjectReference for local debugging; revert to PackageReference for release -->
     <PackageReference Include="Polarion" Version="0.3.7" />
     <!-- <ProjectReference Include="..\..\PolarionApiClient\src\Polarion\Polarion.csproj" /> -->

@@ -50,6 +50,13 @@ public sealed partial class McpTools
                 List<string>? typeList = null;
                 if (!string.IsNullOrWhiteSpace(itemTypes))
                 {
+                    // Containment: types flow into a Polarion query filter; only
+                    // identifier characters are permitted so a token cannot alter query shape.
+                    if (!AreCsvTokensSafeIdentifiers(itemTypes))
+                    {
+                        return "ERROR: (107) itemTypes may only contain identifier characters (letters, digits, '_', '.', '-').";
+                    }
+
                     typeList = itemTypes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
                 }
 
