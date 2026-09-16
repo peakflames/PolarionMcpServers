@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+### Added
+
+- `search_workitems_sql`, an opt-in MCP tool (`SqlQueryTool:Enabled`, default `false`) that runs a validated read-only SQL query as a Polarion `SQL:(…)` filter for join-heavy reads plain Lucene cannot express. It is project-contained — the query is wrapped in a single Lucene group and Polarion intersects it with the route project's id — so the per-caller RBAC gate covers it with no per-tool rule
+- `search_workitems` and the REST search endpoint now pass raw Lucene through verbatim when the query contains a field-scoped filter, a boolean operator (AND/OR/NOT), or parenthesized grouping, instead of re-tokenizing it into an OR of terms
+
 ### Security
 
 - `search_workitems` and the REST search endpoint now reject SQL filters, unbalanced Lucene grouping, and non-identifier type/status values, closing a path by which a query could escape the project scope the server applies
