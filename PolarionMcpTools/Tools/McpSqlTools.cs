@@ -76,7 +76,7 @@ public sealed class McpSqlTools
         if (maxResults > 500) maxResults = 500;
 
         var validSortFields = new[] { "created", "updated", "id", "title" };
-        var sortField = (sortBy ?? "created").ToLower();
+        var sortField = (sortBy ?? "created").ToLowerInvariant();
         if (!validSortFields.Contains(sortField))
         {
             return $"ERROR: (1052) Invalid sortBy value '{sortBy}'. Must be one of: {string.Join(", ", validSortFields)}.";

@@ -22,6 +22,13 @@ public sealed class LuceneDetectorHardeningTests
     [InlineData("sql:(SELECT item.C_PK FROM WORKITEM item)")]
     [InlineData("SQL :(SELECT 1)")]
     [InlineData("customFieldA:subsection_of=PROJ* AND SQL:(SELECT item.C_PK FROM WORKITEM item)")]
+    // Adjacent-operator forms — previously missed by the (^|\s|\() anchor.
+    // All of these must be detected; passing them to the plain search would bypass
+    // the SqlQueryGuard and execute raw SQL through Polarion's credential.
+    [InlineData("-SQL:(SELECT item.C_PK FROM WORKITEM item)")]   // Lucene exclusion prefix
+    [InlineData("+SQL:(SELECT item.C_PK FROM WORKITEM item)")]   // Lucene required prefix
+    [InlineData("!SQL:(SELECT item.C_PK FROM WORKITEM item)")]   // Lucene NOT prefix
+    [InlineData("x:SQL:(SELECT item.C_PK FROM WORKITEM item)")] // colon-adjacent (field:SQL:)
     public void ContainsSqlFilter_DetectsEmbeddedSql(string query)
     {
         McpTools.ContainsSqlFilter(query).Should().BeTrue(
@@ -31,7 +38,7 @@ public sealed class LuceneDetectorHardeningTests
     [Theory]
     [InlineData("timeout")]
     [InlineData("category.KEY:MyCategory AND (timeout)")]
-    [InlineData("MySQL:database")]        // 'SQL' not at a token boundary
+    [InlineData("MySQL:database")]        // 'SQL' not at a token boundary — 'y' is an identifier char
     [InlineData("NoSQL migration")]
     public void ContainsSqlFilter_DoesNotFlagOrdinaryQueries(string query)
     {
@@ -55,6 +62,11 @@ public sealed class LuceneDetectorHardeningTests
     [InlineData("a) OR project.id:other OR (b")]
     [InlineData("(unclosed")]
     [InlineData("\"unterminated phrase")]
+    // Escaped-quote bypass: the attacker uses \" (Lucene backslash-escape for a literal ")
+    // to make the naive toggler think the ) is "inside a phrase" when Lucene sees it as a
+    // real close-paren.  Input: \")\" OR project.id:other OR \"(\"
+    // Without the fix the checker returned balanced=true; Lucene sees ) at depth=-1.
+    [InlineData("\\\")\\\" OR project.id:other OR \\\"(\\\"")]
     public void HasBalancedLuceneGrouping_RejectsUnbalanced(string query)
     {
         McpTools.HasBalancedLuceneGrouping(query).Should().BeFalse();
