@@ -65,7 +65,7 @@ public sealed partial class McpTools
 
         // Validate sortBy field
         var validSortFields = new[] { "created", "updated", "id", "title" };
-        var sortField = (sortBy ?? "created").ToLower();
+        var sortField = (sortBy ?? "created").ToLowerInvariant();
         if (!validSortFields.Contains(sortField))
         {
             return $"ERROR: (104) Invalid sortBy value '{sortBy}'. Must be one of: {string.Join(", ", validSortFields)}.";
@@ -206,12 +206,16 @@ public sealed partial class McpTools
         return $"({string.Join(" OR ", terms)})";
     }
 
-    // A leading "SQL:" filter token (start, whitespace, or open-paren boundary).
+    // A "SQL:" filter token at any non-identifier boundary.
     // Polarion resolves SQL:(...) as a Lucene filter that executes raw SQL, so it must
     // never travel the plain-search path — it is owned exclusively by the opt-in
     // search_workitems_sql tool.
+    //
+    // Negative lookbehind (?<![A-Za-z0-9_]) catches ALL boundary forms — start-of-string,
+    // whitespace, open-paren, AND operator-prefix chars like '-', '+', '!', ']', ':'.
+    // The earlier pattern "(^|\s|\()" missed those adjacents, allowing "-SQL:(...)".
     private static readonly Regex SqlFilterRegex =
-        new(@"(^|\s|\()SQL\s*:", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        new(@"(?<![A-Za-z0-9_])SQL\s*:", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     // An identifier safe to interpolate into a type:/status: field filter: letters,
     // digits, and the '_', '.', '-' characters real Polarion enum ids use. Anything
@@ -281,8 +285,13 @@ public sealed partial class McpTools
     /// True when a caller-supplied Lucene fragment cannot re-associate the project.id
     /// scope the server appends: parenthesis depth never goes negative and ends at zero,
     /// and quotes are balanced. Parentheses inside a phrase (between <c>"</c>) are literal
-    /// text and are ignored. Escaped quotes/parens are not modeled, which errs toward
-    /// rejection (acceptable).
+    /// text and are ignored.
+    ///
+    /// Lucene backslash-escapes (<c>\"</c>) are explicitly handled: a <c>\</c> immediately
+    /// before a <c>"</c> makes that quote a literal character, NOT a phrase delimiter. Without
+    /// this, an attacker could send <c>\")\""</c> to make the checker treat the <c>)</c> as
+    /// "inside a phrase" while Lucene sees it as a real (unmatched) close-paren that escapes
+    /// the project-scope group the server appends.
     /// </summary>
     internal static bool HasBalancedLuceneGrouping(string query)
     {
@@ -293,16 +302,30 @@ public sealed partial class McpTools
 
         var depth = 0;
         var inPhrase = false;
-        foreach (var c in query)
+        var i = 0;
+
+        while (i < query.Length)
         {
+            var c = query[i];
+
+            // Lucene backslash-escaped quote: \" is a literal " char, NOT a phrase delimiter.
+            // Consume both characters so the " does not flip inPhrase.
+            if (c == '\\' && i + 1 < query.Length && query[i + 1] == '"')
+            {
+                i += 2;
+                continue;
+            }
+
             if (c == '"')
             {
                 inPhrase = !inPhrase;
+                i++;
                 continue;
             }
 
             if (inPhrase)
             {
+                i++;
                 continue;
             }
 
@@ -318,6 +341,8 @@ public sealed partial class McpTools
                     return false;
                 }
             }
+
+            i++;
         }
 
         return depth == 0 && !inPhrase;

@@ -88,12 +88,25 @@ public sealed class SqlQueryGuardTests
     [InlineData("SELECT item.C_PK FROM WORKITEM item -- WHERE item.C_ID = '1'")]
     [InlineData("SELECT item.C_PK FROM WORKITEM item /* comment */")]
     [InlineData("SELECT item.C_PK FROM WORKITEM item # comment")]
-    // not a SELECT / DML / DDL
+    // not a SELECT / DML / DDL — core verbs
     [InlineData("UPDATE WORKITEM SET C_STATUS = 'x' WHERE C_PK = 1")]
     [InlineData("DELETE FROM WORKITEM WHERE C_PK = 1")]
     [InlineData("DROP TABLE WORKITEM")]
     [InlineData("INSERT INTO WORKITEM (C_PK) VALUES (1)")]
     [InlineData("SELECT item.C_PK INTO backup FROM WORKITEM item")]
+    // DDL keywords that were in ForbiddenKeywords but not previously tested
+    [InlineData("MERGE WORKITEM USING src ON WORKITEM.C_PK = src.C_PK WHEN MATCHED THEN UPDATE SET C_STATUS = 'x'")]
+    [InlineData("GRANT SELECT ON WORKITEM TO PUBLIC")]
+    [InlineData("REVOKE SELECT ON WORKITEM FROM PUBLIC")]
+    [InlineData("CALL someproc()")]
+    [InlineData("ALTER TABLE WORKITEM ADD COLUMN C_EXTRA VARCHAR(100)")]
+    [InlineData("CREATE TABLE evil AS SELECT C_PK FROM WORKITEM")]
+    [InlineData("TRUNCATE TABLE WORKITEM")]
+    [InlineData("DECLARE @v INT = 1")]
+    [InlineData("SELECT C_PK FROM WORKITEM WHERE C_PK > 0 WAITFOR DELAY '0:0:5'")]
+    // stored-procedure prefix (xp_/sp_) — previously the word-boundary logic made these dead
+    [InlineData("SELECT C_PK FROM WORKITEM WHERE C_PK IN xp_cmdshell('dir')")]
+    [InlineData("SELECT C_PK FROM WORKITEM WHERE C_PK IN sp_executesql('SELECT 1')")]
     // exec / transaction control
     [InlineData("SELECT item.C_PK FROM WORKITEM item; EXEC sp_who")]
     [InlineData("SELECT item.C_PK FROM WORKITEM item WHERE 1=1 COMMIT")]
@@ -107,6 +120,10 @@ public sealed class SqlQueryGuardTests
     // missing required WORKITEM / C_PK contract
     [InlineData("SELECT 1")]
     [InlineData("SELECT proj.C_ID FROM PROJECT proj")]
+    // C_PK only in WHERE clause, not in the SELECT list — Polarion resolves SQL: on the
+    // C_PK values returned by the SELECT, so projecting a different column is not valid.
+    [InlineData("SELECT item.C_TYPE FROM WORKITEM item WHERE item.C_PK > 0")]
+    [InlineData("SELECT item.C_STATUS FROM WORKITEM item WHERE item.C_PK IN (1, 2, 3)")]
     public void Validate_BreakoutAndNonReadOnly_AreRejected(string sql)
     {
         var result = SqlQueryGuard.Validate(sql);

@@ -493,7 +493,7 @@ public static class WorkItemsEndpoints
         if (sortDescending) sortField = sortField[1..];
 
         var validSortFields = new[] { "created", "updated", "id", "title" };
-        if (!validSortFields.Contains(sortField.ToLower()))
+        if (!validSortFields.Contains(sortField.ToLowerInvariant()))
         {
             return CreateErrorResponse("400", "Bad Request",
                 $"Invalid sort field '{sort}'. Must be one of: {string.Join(", ", validSortFields)} (prefix with '-' for descending)");
@@ -530,7 +530,7 @@ public static class WorkItemsEndpoints
             // Call Polarion API
             var searchResult = await polarionClient.SearchWorkitemAsync(
                 luceneQuery,
-                sortField.ToLower(),
+                sortField.ToLowerInvariant(),
                 fieldList);
 
             if (searchResult.IsFailed)

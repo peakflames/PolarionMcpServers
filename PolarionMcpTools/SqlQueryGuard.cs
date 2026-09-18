@@ -34,11 +34,20 @@ internal static class SqlQueryGuard
         "MERGE", "GRANT", "REVOKE", "EXEC", "EXECUTE", "CALL", "INTO",
         "REPLACE", "RENAME", "ATTACH", "DETACH", "PRAGMA", "VACUUM",
         "COMMIT", "ROLLBACK", "SAVEPOINT", "LOCK", "SET", "USE", "SHUTDOWN",
-        "DECLARE", "WAITFOR", "XP_", "SP_",
+        "DECLARE", "WAITFOR",
     };
 
     private static readonly Regex ForbiddenKeywordRegex = new(
         @"(?<![A-Za-z0-9_])(" + string.Join("|", ForbiddenKeywords.Select(Regex.Escape)) + @")(?![A-Za-z0-9_])",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    // Stored-procedure call prefix patterns (xp_cmdshell, sp_executesql, …).
+    // EXEC/EXECUTE/CALL already block invocation; this adds defense against bare
+    // proc-name references. Requires at least one identifier char after the prefix so
+    // the trailing negative lookahead on the main keyword regex (which treated 'XP_' as a
+    // complete token and therefore never matched 'xp_cmdshell') does not apply here.
+    private static readonly Regex StoredProcPrefixRegex = new(
+        @"(?<![A-Za-z0-9_])(XP|SP)_[A-Za-z0-9_]",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     // A leading SELECT (whole word) after optional whitespace / opening parens.
@@ -110,6 +119,13 @@ internal static class SqlQueryGuard
                 $"Disallowed keyword '{keyword.Value.ToUpperInvariant()}' found; only read-only SELECT queries are permitted.");
         }
 
+        // No stored-procedure prefix calls (defense-in-depth; EXEC is already blocked above).
+        if (StoredProcPrefixRegex.IsMatch(code))
+        {
+            return ValidationResult.Fail(
+                "Stored-procedure call (XP_/SP_ prefix) found; only read-only SELECT queries are permitted.");
+        }
+
         // Balanced parentheses, on both the code portion and the raw text (defense in depth:
         // literals are already free of parens by the strip step above).
         if (!AreParenthesesBalanced(code) || !AreParenthesesBalanced(trimmed))
@@ -123,7 +139,11 @@ internal static class SqlQueryGuard
             return ValidationResult.Fail("SQL query must read from the Polarion WORKITEM table.");
         }
 
-        if (!PrimaryKeyProjectionRegex.IsMatch(code))
+        // C_PK must appear in the SELECT list (before the first top-level FROM), not merely
+        // anywhere in the statement (e.g. a WHERE clause). Polarion resolves the SQL: filter
+        // on C_PK values returned by the SELECT, so projecting a different column produces
+        // nonsense results or a Polarion error rather than the expected work-item set.
+        if (!CpkAppearsInSelectList(code))
         {
             return ValidationResult.Fail(
                 "SQL query must project the work-item primary key column (C_PK); Polarion SQL: filters resolve on C_PK.");
@@ -208,4 +228,88 @@ internal static class SqlQueryGuard
 
         return depth == 0;
     }
+
+    /// <summary>
+    /// Returns true when the literal token <c>C_PK</c> appears in the outermost SELECT list
+    /// (i.e. between the leading SELECT keyword and the first top-level FROM keyword).
+    /// Parenthesis depth is tracked so inner subquery SELECTs and their FROMs are skipped.
+    /// Falls back to a presence-anywhere check if no top-level FROM is found (e.g. unusual
+    /// bare SELECT without FROM), which is consistent with the previous behaviour.
+    /// </summary>
+    private static bool CpkAppearsInSelectList(string code)
+    {
+        // Locate the leading SELECT (already enforced by LeadingSelectRegex).
+        var selectMatch = LeadingSelectRegex.Match(code);
+        if (!selectMatch.Success)
+        {
+            return false;
+        }
+
+        var pos = selectMatch.Index + selectMatch.Length;
+        var depth = 0;
+
+        while (pos < code.Length)
+        {
+            var c = code[pos];
+
+            if (c == '(')
+            {
+                depth++;
+                pos++;
+                continue;
+            }
+
+            if (c == ')')
+            {
+                depth--;
+                pos++;
+                continue;
+            }
+
+            if (depth == 0)
+            {
+                // Check for C_PK at a word boundary — it must precede the first top-level FROM.
+                if (MatchesWordAt(code, pos, "C_PK"))
+                {
+                    return true;
+                }
+
+                // First top-level FROM reached: C_PK was not in the SELECT list.
+                if (MatchesWordAt(code, pos, "FROM"))
+                {
+                    return false;
+                }
+            }
+
+            pos++;
+        }
+
+        // No top-level FROM found (e.g. correlated subquery shaped query): allow if C_PK
+        // appears anywhere in the remaining code — this is the pre-existing check behaviour.
+        return PrimaryKeyProjectionRegex.IsMatch(code.Substring(selectMatch.Index + selectMatch.Length));
+    }
+
+    /// <summary>
+    /// True when <paramref name="code"/> contains <paramref name="word"/> at position
+    /// <paramref name="pos"/> with identifier-character word boundaries on both sides
+    /// (case-insensitive). Does NOT advance <paramref name="pos"/>.
+    /// </summary>
+    private static bool MatchesWordAt(string code, int pos, string word)
+    {
+        if (pos + word.Length > code.Length)
+        {
+            return false;
+        }
+
+        if (!code.Substring(pos, word.Length).Equals(word, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var beforeOk = pos == 0 || !IsIdentChar(code[pos - 1]);
+        var afterOk = pos + word.Length >= code.Length || !IsIdentChar(code[pos + word.Length]);
+        return beforeOk && afterOk;
+    }
+
+    private static bool IsIdentChar(char c) => char.IsLetterOrDigit(c) || c == '_';
 }
