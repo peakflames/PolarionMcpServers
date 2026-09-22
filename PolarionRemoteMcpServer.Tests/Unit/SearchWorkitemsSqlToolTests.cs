@@ -102,6 +102,48 @@ public sealed class SearchWorkitemsSqlToolTests
         depth.Should().Be(0, "the outer group must close exactly at the end");
     }
 
+    // --- Timeout error paths -------------------------------------------------
+
+    [Theory]
+    [InlineData("The request channel timed out attempting to send after 00:01:00")]
+    [InlineData("Operation timed out")]
+    [InlineData("SendTimeout exceeded")]
+    public async Task SearchWorkitemsSql_ReturnsCode1056_OnTimeoutInFailedResult(string timeoutMessage)
+    {
+        var client = new Mock<IPolarionClient>(MockBehavior.Strict);
+        client
+            .Setup(c => c.SearchWorkitemAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<bool>()))
+            .ReturnsAsync(Result.Fail<WorkItem[]>(timeoutMessage));
+
+        var services = new ServiceCollection();
+        services.AddSingleton<IPolarionClientFactory>(new StubPolarionClientFactory(client.Object));
+        var tool = new McpSqlTools(services.BuildServiceProvider());
+
+        var result = await tool.SearchWorkitemsSql(ValidSql);
+
+        result.Should().StartWith("ERROR: (1056)");
+        result.Should().Contain("selective WHERE");
+    }
+
+    [Fact]
+    public async Task SearchWorkitemsSql_ReturnsCode1056_OnTimeoutException()
+    {
+        var client = new Mock<IPolarionClient>(MockBehavior.Strict);
+        client
+            .Setup(c => c.SearchWorkitemAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<bool>()))
+            .ThrowsAsync(new TimeoutException("The operation has timed out."));
+
+        var services = new ServiceCollection();
+        services.AddSingleton<IPolarionClientFactory>(new StubPolarionClientFactory(client.Object));
+        var tool = new McpSqlTools(services.BuildServiceProvider());
+
+        var result = await tool.SearchWorkitemsSql(ValidSql);
+
+        result.Should().StartWith("ERROR: (1056)");
+    }
+
     // --- Transport contract --------------------------------------------------
 
     [Fact]
