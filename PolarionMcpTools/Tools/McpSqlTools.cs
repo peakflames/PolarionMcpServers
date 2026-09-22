@@ -121,6 +121,13 @@ public sealed class McpSqlTools
                 {
                     var errorMsg = searchResult.Errors.FirstOrDefault()?.ToString() ?? "Unknown error";
 
+                    if (errorMsg.Contains("timed out", StringComparison.OrdinalIgnoreCase) ||
+                        errorMsg.Contains("timeout", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return $"ERROR: (1056) SQL query timed out before Polarion returned results. " +
+                               $"Add more selective WHERE conditions to reduce the result set. Query: '{luceneQuery}'";
+                    }
+
                     if (errorMsg.Contains("parse", StringComparison.OrdinalIgnoreCase) ||
                         errorMsg.Contains("syntax", StringComparison.OrdinalIgnoreCase))
                     {
@@ -140,6 +147,12 @@ public sealed class McpSqlTools
             }
             catch (Exception ex)
             {
+                if (ex is TimeoutException || ex.Message.Contains("timed out", StringComparison.OrdinalIgnoreCase))
+                {
+                    return $"ERROR: (1056) SQL query timed out before Polarion returned results. " +
+                           $"Add more selective WHERE conditions to reduce the result set. Query: '{luceneQuery}'";
+                }
+
                 return $"ERROR: Failed due to exception '{ex.Message}'";
             }
         }

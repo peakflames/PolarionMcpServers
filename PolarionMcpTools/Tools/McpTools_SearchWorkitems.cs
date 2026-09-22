@@ -82,14 +82,13 @@ public sealed partial class McpTools
 
             var polarionClient = clientResult.Value;
 
+            // Hoist the variable so the catch block can include it in timeout error messages.
+            var luceneQuery = BuildLuceneQuery(searchQuery, itemTypes, statusFilter);
+
             try
             {
-                // Build Lucene query, then prepend an explicit project.id scope so results are
-                // always constrained to this endpoint's project regardless of the SOAP session's
-                // active project. Without this, a session whose active project differs from the
-                // configured ProjectId returns items from the wrong scope (or exceeds the WCF
-                // message-size limit when the session is globally scoped).
-                var luceneQuery = BuildLuceneQuery(searchQuery, itemTypes, statusFilter);
+                // Prepend an explicit project.id scope so results are always constrained to this
+                // endpoint's project regardless of the SOAP session's active project.
                 var projectConfig = GetCurrentProjectConfig();
                 var projectId = projectConfig?.SessionConfig?.ProjectId;
                 if (!string.IsNullOrWhiteSpace(projectId))
@@ -126,6 +125,14 @@ public sealed partial class McpTools
                                $"Query: '{luceneQuery}'";
                     }
 
+                    if (errorMsg.Contains("timed out", StringComparison.OrdinalIgnoreCase) ||
+                        errorMsg.Contains("timeout", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return $"ERROR: (1049) Search timed out before Polarion returned results. The query is likely " +
+                               $"too broad. Narrow it (add type:, status:, document.id:, or date filters) or use " +
+                               $"search_workitems_sql with a WHERE clause. Query: '{luceneQuery}'";
+                    }
+
                     if (errorMsg.Contains("parse", StringComparison.OrdinalIgnoreCase) ||
                         errorMsg.Contains("syntax", StringComparison.OrdinalIgnoreCase))
                     {
@@ -148,6 +155,13 @@ public sealed partial class McpTools
             }
             catch (Exception ex)
             {
+                if (ex is TimeoutException || ex.Message.Contains("timed out", StringComparison.OrdinalIgnoreCase))
+                {
+                    return $"ERROR: (1049) Search timed out before Polarion returned results. The query is likely " +
+                           $"too broad. Narrow it (add type:, status:, document.id:, or date filters) or use " +
+                           $"search_workitems_sql with a WHERE clause. Query: '{luceneQuery}'";
+                }
+
                 return $"ERROR: Failed due to exception '{ex.Message}'";
             }
         }
