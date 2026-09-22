@@ -32,7 +32,7 @@ public sealed class SqlQueryGuardTests
     private const string ChildrenWithParents =
         "SELECT child.C_PK FROM WORKITEM child WHERE child.C_TYPE = 'artifactB' " +
         "AND EXISTS ( SELECT link.* FROM STRUCT_WORKITEM_LINKEDWORKITEMS link, WORKITEM parent " +
-        "WHERE link.C_ROLE = 'configures' AND link.FK_URI_WORKITEM = parent.C_URI " +
+        "WHERE link.C_ROLE = 'roleA' AND link.FK_URI_WORKITEM = parent.C_URI " +
         "AND link.FK_URI_P_WORKITEM = child.C_URI AND parent.C_TYPE = 'artifactA' )";
 
     private const string ChildrenByParentProps =
@@ -43,7 +43,7 @@ public sealed class SqlQueryGuardTests
         "AND customfield1.C_NAME = 'customFieldC' AND customfield1.C_STRING_VALUE = 'no' " +
         "AND EXISTS (SELECT link.* FROM STRUCT_WORKITEM_LINKEDWORKITEMS link, WORKITEM parent " +
         "INNER JOIN CF_WORKITEM customfield2 on customfield2.FK_WORKITEM = parent.C_PK " +
-        "WHERE link.C_ROLE = 'satisfies' AND link.FK_URI_P_WORKITEM = item.C_URI " +
+        "WHERE link.C_ROLE = 'roleB' AND link.FK_URI_P_WORKITEM = item.C_URI " +
         "AND link.FK_URI_WORKITEM = parent.C_URI AND customfield2.C_NAME = 'customFieldC' " +
         "AND customfield2.C_STRING_VALUE = 'yes')";
 
@@ -53,10 +53,10 @@ public sealed class SqlQueryGuardTests
         "AND doc2.FK_URI_PROJECT = proj.C_URI AND child.C_TYPE = 'artifactB' " +
         "AND child.FK_URI_MODULE = doc2.C_URI AND EXISTS ( SELECT link.* " +
         "FROM STRUCT_WORKITEM_LINKEDWORKITEMS link INNER JOIN WORKITEM parent " +
-        "ON link.FK_URI_WORKITEM = parent.C_URI WHERE link.C_ROLE = 'configures' " +
+        "ON link.FK_URI_WORKITEM = parent.C_URI WHERE link.C_ROLE = 'roleA' " +
         "AND link.FK_URI_P_WORKITEM = child.C_URI AND parent.C_TYPE = 'requirement' " +
-        "AND ( parent.C_STATUS NOT IN ('proposed', 'inValidation', 'validated') OR " +
-        "( parent.C_STATUS IN ('proposed', 'inValidation') AND ( EXISTS ( SELECT 1 FROM CF_WORKITEM cf1 " +
+        "AND ( parent.C_STATUS NOT IN ('stateA', 'stateB', 'stateC') OR " +
+        "( parent.C_STATUS IN ('stateA', 'stateB') AND ( EXISTS ( SELECT 1 FROM CF_WORKITEM cf1 " +
         "WHERE cf1.FK_WORKITEM = parent.C_PK AND cf1.C_NAME = 'customFieldB' AND cf1.C_STRING_VALUE = 'no' ) ) ) ) )";
 
     // -------------------------------------------------------------------------

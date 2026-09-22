@@ -43,7 +43,7 @@ public sealed class LucenePassthroughTests
     [Theory]
     [InlineData("(timeout)")]
     [InlineData("category.KEY:MyCategory AND (timeout)")]
-    [InlineData("type:requirement AND customFieldA.KEY:yes AND document.id:(MySpace/my_alerts_doc MySpace/my_comms_doc)")]
+    [InlineData("type:requirement AND customFieldA.KEY:yes AND document.id:(MySpace/docA MySpace/docB)")]
     public void BuildTextSearchQuery_ParenthesizedComposition_IsPassedThroughVerbatim(string query)
     {
         McpTools.BuildTextSearchQuery(query).Should().Be(query,

@@ -73,13 +73,13 @@ public sealed class SearchWorkitemsSqlToolTests
     [Fact]
     public void BuildSqlLuceneQuery_AndsSupplementaryLuceneFilterInsideOuterGroup()
     {
-        McpSqlTools.BuildSqlLuceneQuery(ValidSql, "linkedWorkItems:subsection_of=PROJ*")
-            .Should().Be("(SQL:(SELECT item.C_PK FROM WORKITEM item) AND (linkedWorkItems:subsection_of=PROJ*))");
+        McpSqlTools.BuildSqlLuceneQuery(ValidSql, "linkedWorkItems:parent_of=PROJ*")
+            .Should().Be("(SQL:(SELECT item.C_PK FROM WORKITEM item) AND (linkedWorkItems:parent_of=PROJ*))");
     }
 
     [Theory]
     [InlineData(null)]
-    [InlineData("linkedWorkItems:subsection_of=PROJ*")]
+    [InlineData("linkedWorkItems:parent_of=PROJ*")]
     public void BuildSqlLuceneQuery_OuterGroupNeverClosesBeforeEnd(string? luceneFilter)
     {
         // Prefix-depth invariant: parenthesis depth stays >= 1 everywhere except the final char,

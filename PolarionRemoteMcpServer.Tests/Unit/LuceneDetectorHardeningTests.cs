@@ -21,7 +21,7 @@ public sealed class LuceneDetectorHardeningTests
     [InlineData("SQL:(SELECT item.C_PK FROM WORKITEM item)")]
     [InlineData("sql:(SELECT item.C_PK FROM WORKITEM item)")]
     [InlineData("SQL :(SELECT 1)")]
-    [InlineData("customFieldA:subsection_of=PROJ* AND SQL:(SELECT item.C_PK FROM WORKITEM item)")]
+    [InlineData("customFieldA:parent_of=PROJ* AND SQL:(SELECT item.C_PK FROM WORKITEM item)")]
     // Adjacent-operator forms — previously missed by the (^|\s|\() anchor.
     // All of these must be detected; passing them to the plain search would bypass
     // the SqlQueryGuard and execute raw SQL through Polarion's credential.
