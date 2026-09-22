@@ -42,7 +42,7 @@ public sealed class McpSqlTools
         string sqlQuery,
 
         [Description("Optional additional Lucene filter to AND with the SQL result " +
-                     "(e.g. 'linkedWorkItems:subsection_of=PROJ*' to exclude recycle-bin items). " +
+                     "(e.g. 'linkedWorkItems:parent_of=PROJ*' to exclude recycle-bin items). " +
                      "Must not itself contain a SQL:(...) filter or unbalanced grouping.")]
         string? luceneFilter = null,
 
