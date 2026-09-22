@@ -119,7 +119,7 @@ public sealed class McpSqlTools
 
                 if (searchResult.IsFailed)
                 {
-                    var errorMsg = searchResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";
+                    var errorMsg = searchResult.Errors.FirstOrDefault()?.ToString() ?? "Unknown error";
 
                     if (errorMsg.Contains("parse", StringComparison.OrdinalIgnoreCase) ||
                         errorMsg.Contains("syntax", StringComparison.OrdinalIgnoreCase))

@@ -84,8 +84,18 @@ public sealed partial class McpTools
 
             try
             {
-                // Build Lucene query
+                // Build Lucene query, then prepend an explicit project.id scope so results are
+                // always constrained to this endpoint's project regardless of the SOAP session's
+                // active project. Without this, a session whose active project differs from the
+                // configured ProjectId returns items from the wrong scope (or exceeds the WCF
+                // message-size limit when the session is globally scoped).
                 var luceneQuery = BuildLuceneQuery(searchQuery, itemTypes, statusFilter);
+                var projectConfig = GetCurrentProjectConfig();
+                var projectId = projectConfig?.SessionConfig?.ProjectId;
+                if (!string.IsNullOrWhiteSpace(projectId))
+                {
+                    luceneQuery = $"project.id:{projectId} AND ({luceneQuery})";
+                }
 
                 // Get field list
                 var fieldList = GetDefaultFieldList();
@@ -98,7 +108,15 @@ public sealed partial class McpTools
 
                 if (searchResult.IsFailed)
                 {
-                    var errorMsg = searchResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";
+                    var errorMsg = searchResult.Errors.FirstOrDefault()?.ToString() ?? "Unknown error";
+
+                    if (errorMsg.Contains("MaxReceivedMessageSize", StringComparison.OrdinalIgnoreCase) ||
+                        errorMsg.Contains("message size quota", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return $"ERROR: (1047) Search returned too many results for the SOAP transport limit. " +
+                               $"Narrow the query (add type:, status:, or date filters) or use search_workitems_sql " +
+                               $"with a WHERE clause to reduce the result set. Query: '{luceneQuery}'";
+                    }
 
                     if (errorMsg.Contains("parse", StringComparison.OrdinalIgnoreCase) ||
                         errorMsg.Contains("syntax", StringComparison.OrdinalIgnoreCase))
