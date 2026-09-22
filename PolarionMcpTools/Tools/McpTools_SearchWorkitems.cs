@@ -118,6 +118,14 @@ public sealed partial class McpTools
                                $"with a WHERE clause to reduce the result set. Query: '{luceneQuery}'";
                     }
 
+                    if (errorMsg.Contains("maximum allowed limit", StringComparison.OrdinalIgnoreCase) ||
+                        errorMsg.Contains("100,000", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return $"ERROR: (1048) Query matches more than Polarion's 100,000 object limit. " +
+                               $"Add more filters (type:, status:, document.id:, etc.) to narrow the result set. " +
+                               $"Query: '{luceneQuery}'";
+                    }
+
                     if (errorMsg.Contains("parse", StringComparison.OrdinalIgnoreCase) ||
                         errorMsg.Contains("syntax", StringComparison.OrdinalIgnoreCase))
                     {
