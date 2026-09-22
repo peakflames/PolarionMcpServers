@@ -35,6 +35,9 @@ internal static class SqlQueryGuard
         "REPLACE", "RENAME", "ATTACH", "DETACH", "PRAGMA", "VACUUM",
         "COMMIT", "ROLLBACK", "SAVEPOINT", "LOCK", "SET", "USE", "SHUTDOWN",
         "DECLARE", "WAITFOR",
+        // Set-operation combinators: let a second SELECT read from any table,
+        // bypassing the WORKITEM / C_PK contract the guard enforces below.
+        "UNION", "INTERSECT", "EXCEPT",
     };
 
     private static readonly Regex ForbiddenKeywordRegex = new(
@@ -126,9 +129,10 @@ internal static class SqlQueryGuard
                 "Stored-procedure call (XP_/SP_ prefix) found; only read-only SELECT queries are permitted.");
         }
 
-        // Balanced parentheses, on both the code portion and the raw text (defense in depth:
-        // literals are already free of parens by the strip step above).
-        if (!AreParenthesesBalanced(code) || !AreParenthesesBalanced(trimmed))
+        // Balanced parentheses: check only the literal-stripped code. TryStripStringLiterals
+        // already rejected any literal that contained '(' or ')', so every paren in the raw
+        // text is also present at the same position in code — one check is sufficient.
+        if (!AreParenthesesBalanced(code))
         {
             return ValidationResult.Fail("Unbalanced parentheses in SQL query.");
         }

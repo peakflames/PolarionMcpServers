@@ -40,8 +40,11 @@ the same way the other tools are:
 yes/no oracle about whether data exists in *another* project (e.g. a join that returns rows only if
 a linked item exists elsewhere), and heavy joins cost more server time than a plain Lucene search.
 That is why it is off by default, length- and shape-bounded by the guard, and audited under
-`ToolName=search_workitems_sql` like any other call. Operators who cannot accept this residual
-should leave it disabled.
+`ToolName=search_workitems_sql` like any other call. Note: this audit only applies to the HTTP
+server (`PolarionRemoteMcpServer`). The stdio server (`PolarionMcpServer`) does not register an
+RBAC layer or audit sink; project containment via `project.id` still holds, but no per-call audit
+record is produced on that deployment path. Operators who cannot accept this residual should leave
+it disabled.
 
 ## The ordered decision contract
 

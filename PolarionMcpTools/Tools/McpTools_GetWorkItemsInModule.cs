@@ -41,6 +41,17 @@ public sealed partial class McpTools
             return "ERROR: (102) Revision must be '-1' for the latest revision or a positive integer baseline revision ID.";
         }
 
+        // The SDK string-interpolates space and documentId directly into SQL; block injection chars.
+        if (!IsSafeForPolarionPathParam(space))
+        {
+            return "ERROR: (103) space contains characters that are not permitted (single-quote, semicolon, or comment tokens).";
+        }
+
+        if (!IsSafeForPolarionPathParam(documentId))
+        {
+            return "ERROR: (104) documentId contains characters that are not permitted (single-quote, semicolon, or comment tokens).";
+        }
+
         await using (var scope = _serviceProvider.CreateAsyncScope())
         {
             var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();

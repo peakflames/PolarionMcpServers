@@ -232,6 +232,10 @@ public sealed partial class McpTools
     // e.g. category.KEY) immediately followed by ':' and a non-space, non-'/' value. The
     // leading boundary and non-'/' value class keep out URLs (http://...); the [A-Za-z_]
     // first char excludes numeric time/ratio tokens like 12:30 or 3:1.
+    //
+    // Intentionally broad: this is a passthrough signal for LooksLikeRawLucene, not an
+    // allowlist. Narrowing to known Polarion field names would break valid custom fields
+    // (category.KEY, linkedWorkItems.role, etc.) that vary per-project.
     private static readonly Regex FieldScopedRegex =
         new(@"(^|\s)[A-Za-z_][A-Za-z0-9_.]*:[^\s/]", RegexOptions.Compiled);
 
@@ -354,6 +358,26 @@ public sealed partial class McpTools
     /// </summary>
     internal static bool IsSafeIdentifier(string? value)
         => !string.IsNullOrEmpty(value) && SafeIdentifierRegex.IsMatch(value);
+
+    /// <summary>
+    /// True when <paramref name="value"/> is safe to pass as a Polarion space name or document
+    /// ID. The Polarion SDK string-interpolates these directly into SQL, so SQL injection
+    /// characters are blocked. Spaces and dashes are allowed (real space names use them, e.g.
+    /// "My Space - Section").
+    /// </summary>
+    internal static bool IsSafeForPolarionPathParam(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return false;
+        }
+
+        return !value.Contains('\'') &&
+               !value.Contains(';') &&
+               !value.Contains("--") &&
+               !value.Contains("/*") &&
+               !value.Contains("*/");
+    }
 
     /// <summary>
     /// True when every comma-separated token in <paramref name="csv"/> is a safe identifier.
