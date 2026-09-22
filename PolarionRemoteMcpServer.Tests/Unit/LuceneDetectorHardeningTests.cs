@@ -128,4 +128,29 @@ public sealed class LuceneDetectorHardeningTests
 
         result.Should().StartWith("ERROR: (107)");
     }
+
+    // --- IsSafeForPolarionPathParam ------------------------------------------
+
+    [Theory]
+    [InlineData("MySpace")]
+    [InlineData("My Space - Section")]          // example space name with spaces and dashes
+    [InlineData("my_doc_id")]
+    [InlineData("System Requirements")]
+    public void IsSafeForPolarionPathParam_AcceptsValidNames(string value)
+    {
+        McpTools.IsSafeForPolarionPathParam(value).Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("' OR '1'='1")]            // SQL injection via single-quote
+    [InlineData("--injection")]            // SQL line-comment token
+    [InlineData("foo; DROP TABLE WORKITEM")] // statement terminator
+    [InlineData("x /* comment */")]        // block-comment open
+    [InlineData("x */ y")]                 // block-comment close
+    [InlineData(null)]
+    [InlineData("")]
+    public void IsSafeForPolarionPathParam_RejectsInjectionAttempts(string? value)
+    {
+        McpTools.IsSafeForPolarionPathParam(value).Should().BeFalse();
+    }
 }

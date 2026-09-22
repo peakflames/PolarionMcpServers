@@ -124,6 +124,11 @@ public sealed class SqlQueryGuardTests
     // C_PK values returned by the SELECT, so projecting a different column is not valid.
     [InlineData("SELECT item.C_TYPE FROM WORKITEM item WHERE item.C_PK > 0")]
     [InlineData("SELECT item.C_STATUS FROM WORKITEM item WHERE item.C_PK IN (1, 2, 3)")]
+    // set-operation combinators: allow a second SELECT to read from any table, bypassing
+    // the WORKITEM / C_PK contract enforced below.
+    [InlineData("SELECT C_PK FROM WORKITEM UNION SELECT secret FROM other_table")]
+    [InlineData("SELECT C_PK FROM WORKITEM INTERSECT SELECT C_PK FROM PROJECT")]
+    [InlineData("SELECT C_PK FROM WORKITEM EXCEPT SELECT C_PK FROM PROJECT")]
     public void Validate_BreakoutAndNonReadOnly_AreRejected(string sql)
     {
         var result = SqlQueryGuard.Validate(sql);

@@ -490,13 +490,22 @@ public static class WorkItemsEndpoints
         // Validate sort field and direction
         var sortField = sort ?? "created";
         var sortDescending = sortField.StartsWith("-");
-        if (sortDescending) sortField = sortField[1..];
+        if (sortDescending)
+        {
+            sortField = sortField[1..];
+        }
 
         var validSortFields = new[] { "created", "updated", "id", "title" };
         if (!validSortFields.Contains(sortField.ToLowerInvariant()))
         {
             return CreateErrorResponse("400", "Bad Request",
                 $"Invalid sort field '{sort}'. Must be one of: {string.Join(", ", validSortFields)} (prefix with '-' for descending)");
+        }
+
+        if (sortDescending)
+        {
+            return CreateErrorResponse("400", "Bad Request",
+                "Descending sort (prefix '-') is not supported by the underlying Polarion API call on this path.");
         }
 
         // Get project config

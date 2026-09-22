@@ -229,6 +229,19 @@ public static class DocumentsEndpoints
             return CreateErrorResponse("400", "Bad Request", "spaceId and documentId parameters cannot be empty.");
         }
 
+        // The SDK string-interpolates spaceId and documentId directly into SQL; block injection chars.
+        if (!McpTools.IsSafeForPolarionPathParam(spaceId))
+        {
+            return CreateErrorResponse("400", "Bad Request",
+                "spaceId contains characters that are not permitted (single-quote, semicolon, or comment tokens).");
+        }
+
+        if (!McpTools.IsSafeForPolarionPathParam(documentId))
+        {
+            return CreateErrorResponse("400", "Bad Request",
+                "documentId contains characters that are not permitted (single-quote, semicolon, or comment tokens).");
+        }
+
         // Get project config - matches against SessionConfig.ProjectId, no fallback
         var projectConfig = projectResolver.GetProjectConfig(projectId);
         if (projectConfig == null)

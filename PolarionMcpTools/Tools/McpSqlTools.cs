@@ -72,8 +72,15 @@ public sealed class McpSqlTools
             return "ERROR: (1055) The luceneFilter argument has unbalanced parentheses or quotes.";
         }
 
-        if (maxResults < 1) maxResults = 1;
-        if (maxResults > 500) maxResults = 500;
+        if (maxResults < 1)
+        {
+            maxResults = 1;
+        }
+
+        if (maxResults > 500)
+        {
+            maxResults = 500;
+        }
 
         var validSortFields = new[] { "created", "updated", "id", "title" };
         var sortField = (sortBy ?? "created").ToLowerInvariant();
@@ -101,6 +108,10 @@ public sealed class McpSqlTools
 
                 // The 3-argument overload leaves includeAllProjects at its default (false), so
                 // Polarion keeps the project.id filter and results stay within the route project.
+                //
+                // SDK limitation: SearchWorkitemAsync has no page/limit parameter, so the full
+                // matching result set is materialized in memory before maxResults is applied below.
+                // This is a pre-existing constraint that cannot be resolved without API changes.
                 var searchResult = await polarionClient.SearchWorkitemAsync(
                     luceneQuery,
                     sortField,
