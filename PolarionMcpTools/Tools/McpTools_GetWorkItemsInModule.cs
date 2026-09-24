@@ -36,7 +36,7 @@ public sealed partial class McpTools
         // revision must be "-1" (latest) or a non-negative integer (baseline revision ID).
         // An arbitrary string here reaches the Polarion SOAP layer and could produce
         // unexpected query shapes.
-        if (revision != "-1" && !revision.All(char.IsDigit))
+        if (string.IsNullOrEmpty(revision) || (revision != "-1" && !revision.All(char.IsDigit)))
         {
             return "ERROR: (102) Revision must be '-1' for the latest revision or a positive integer baseline revision ID.";
         }
@@ -52,182 +52,181 @@ public sealed partial class McpTools
             return "ERROR: (104) documentId contains characters that are not permitted (single-quote, semicolon, or comment tokens).";
         }
 
-        await using (var scope = _serviceProvider.CreateAsyncScope())
+        await using var scope = _serviceProvider.CreateAsyncScope();
+        var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
+        var clientResult = await clientFactory.CreateClientAsync();
+        if (clientResult.IsFailed)
         {
-            var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
-            var clientResult = await clientFactory.CreateClientAsync();
-            if (clientResult.IsFailed)
-            {
-                return clientResult.Errors.First().ToString() ?? "Internal Error (3584) unknown error when creating Polarion client";
-            }
+            return clientResult.Errors.First().ToString() ?? "Internal Error (3584) unknown error when creating Polarion client";
+        }
 
-            var polarionClient = clientResult.Value;
+        var polarionClient = clientResult.Value;
 
-            try
+        try
+        {
+            // Parse item types if provided
+            List<string>? typeList = null;
+            if (!string.IsNullOrWhiteSpace(itemTypes))
             {
-                // Parse item types if provided
-                List<string>? typeList = null;
-                if (!string.IsNullOrWhiteSpace(itemTypes))
+                // Containment: types flow into a Polarion query filter; only
+                // identifier characters are permitted so a token cannot alter query shape.
+                if (!AreCsvTokensSafeIdentifiers(itemTypes))
                 {
-                    // Containment: types flow into a Polarion query filter; only
-                    // identifier characters are permitted so a token cannot alter query shape.
-                    if (!AreCsvTokensSafeIdentifiers(itemTypes))
-                    {
-                        return "ERROR: (107) itemTypes may only contain identifier characters (letters, digits, '_', '.', '-').";
-                    }
-
-                    typeList = itemTypes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+                    return "ERROR: (107) itemTypes may only contain identifier characters (letters, digits, '_', '.', '-').";
                 }
 
-                var isHistoricalQuery = revision != "-1";
-                WorkItem[] workItems;
-                Dictionary<string, (string Revision, string HeadRevision, bool IsHistorical)>? revisionMetadata = null;
+                typeList = itemTypes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+            }
 
-                if (isHistoricalQuery)
+            var isHistoricalQuery = revision != "-1";
+            WorkItem[] workItems;
+            Dictionary<string, (string Revision, string HeadRevision, bool IsHistorical)>? revisionMetadata = null;
+
+            if (isHistoricalQuery)
+            {
+                // Historical revision - use baseline revision API
+                // Note: Type filtering is not supported for historical queries (documented in parameter description)
+
+                var workItemsResult = await polarionClient.GetWorkItemsByModuleRevisionAsync(
+                    space,
+                    documentId,
+                    revision);
+
+                if (workItemsResult.IsFailed)
                 {
-                    // Historical revision - use baseline revision API
-                    // Note: Type filtering is not supported for historical queries (documented in parameter description)
+                    var errorMessage = workItemsResult.Errors.First().Message;
 
-                    var workItemsResult = await polarionClient.GetWorkItemsByModuleRevisionAsync(
-                        space,
-                        documentId,
-                        revision);
-
-                    if (workItemsResult.IsFailed)
+                    if (errorMessage.Contains("UnresolvableObjectException", StringComparison.OrdinalIgnoreCase))
                     {
-                        var errorMessage = workItemsResult.Errors.First().Message;
-
-                        if (errorMessage.Contains("UnresolvableObjectException", StringComparison.OrdinalIgnoreCase))
-                        {
-                            return $"ERROR: (1044) The document '{space}/{documentId}' could not be found at revision '{revision}'. " +
-                                   $"This typically means the revision number is invalid for this document. " +
-                                   $"Common causes:\n" +
-                                   $"  1. The revision number is a work item revision, not a document baseline revision\n" +
-                                   $"  2. The document did not exist at the specified revision\n" +
-                                   $"  3. The document has not been modified since before the specified revision\n\n" +
-                                   $"To find valid document revisions, use get_document_revision_history.";
-                        }
-
-                        return $"ERROR: (1044) Failed to fetch work items. Error: {errorMessage}";
+                        return $"ERROR: (1044) The document '{space}/{documentId}' could not be found at revision '{revision}'. " +
+                               $"This typically means the revision number is invalid for this document. " +
+                               $"Common causes:\n" +
+                               $"  1. The revision number is a work item revision, not a document baseline revision\n" +
+                               $"  2. The document did not exist at the specified revision\n" +
+                               $"  3. The document has not been modified since before the specified revision\n\n" +
+                               $"To find valid document revisions, use get_document_revision_history.";
                     }
 
-                    var wiInfoArray = workItemsResult.Value;
-                    workItems = wiInfoArray.Select(wi => wi.WorkItem).ToArray();
+                    return $"ERROR: (1044) Failed to fetch work items. Error: {errorMessage}";
+                }
 
-                    // Store revision metadata for output formatting
-                    revisionMetadata = new Dictionary<string, (string, string, bool)>();
-                    foreach (var wiInfo in wiInfoArray)
+                var wiInfoArray = workItemsResult.Value;
+                workItems = wiInfoArray.Select(wi => wi.WorkItem).ToArray();
+
+                // Store revision metadata for output formatting
+                revisionMetadata = new Dictionary<string, (string, string, bool)>();
+                foreach (var wiInfo in wiInfoArray)
+                {
+                    if (wiInfo?.WorkItem?.id != null)
                     {
-                        if (wiInfo?.WorkItem?.id != null)
-                        {
-                            revisionMetadata[wiInfo.WorkItem.id] = (wiInfo.Revision, wiInfo.HeadRevision, wiInfo.IsHistorical);
-                        }
+                        revisionMetadata[wiInfo.WorkItem.id] = (wiInfo.Revision, wiInfo.HeadRevision, wiInfo.IsHistorical);
                     }
+                }
+            }
+            else
+            {
+                // Current revision - use standard query with type filtering support
+                var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(
+                    space,
+                    documentId,
+                    typeList);
+
+                if (workItemsResult.IsFailed)
+                {
+                    return $"ERROR: (1044) Failed to fetch work items. Error: {workItemsResult.Errors.First().Message}";
+                }
+
+                workItems = workItemsResult.Value;
+            }
+
+            if (workItems is null || workItems.Length == 0)
+            {
+                return $"No work items found in module '{space}/{documentId}'.";
+            }
+
+            var result = new StringBuilder();
+            result.AppendLine($"# Work Items in Module");
+            result.AppendLine();
+            result.AppendLine($"- **Space**: {space}");
+            result.AppendLine($"- **Document ID**: {documentId}");
+
+            if (isHistoricalQuery)
+            {
+                result.AppendLine($"- **Revision**: {revision}");
+            }
+
+            if (typeList != null && typeList.Count > 0 && !isHistoricalQuery)
+            {
+                result.AppendLine($"- **Filtered Types**: {string.Join(", ", typeList)}");
+            }
+
+            result.AppendLine($"- **Total Work Items**: {workItems.Length}");
+
+            if (isHistoricalQuery && revisionMetadata != null)
+            {
+                var historicalCount = revisionMetadata.Values.Count(m => m.IsHistorical);
+                var currentCount = workItems.Length - historicalCount;
+                result.AppendLine($"- **Historical Items** (different from HEAD): {historicalCount}");
+                result.AppendLine($"- **Current Items** (same as HEAD): {currentCount}");
+            }
+
+            result.AppendLine();
+
+            foreach (var workItem in workItems)
+            {
+                if (workItem is null)
+                {
+                    continue;
+                }
+
+                var lastUpdated = workItem.updatedSpecified ? workItem.updated.ToString("yyyy-MM-dd HH:mm:ss") : "N/A";
+
+                if (isHistoricalQuery && revisionMetadata != null && workItem.id != null && revisionMetadata.TryGetValue(workItem.id, out var metadata))
+                {
+                    // Historical query - show revision status
+                    var revisionStatus = metadata.IsHistorical ? "HISTORICAL" : "CURRENT";
+                    result.AppendLine($"## WorkItem (id={workItem.id ?? "N/A"}, type={workItem.type?.id ?? "N/A"}, status={revisionStatus})");
+                    result.AppendLine();
+                    result.AppendLine($"- **Revision**: {metadata.Revision} (HEAD: {metadata.HeadRevision})");
                 }
                 else
                 {
-                    // Current revision - use standard query with type filtering support
-                    var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(
-                        space,
-                        documentId,
-                        typeList);
-
-                    if (workItemsResult.IsFailed)
-                    {
-                        return $"ERROR: (1044) Failed to fetch work items. Error: {workItemsResult.Errors.First().Message}";
-                    }
-
-                    workItems = workItemsResult.Value;
-                }
-
-                if (workItems is null || workItems.Length == 0)
-                {
-                    return $"No work items found in module '{space}/{documentId}'.";
-                }
-
-                var result = new StringBuilder();
-                result.AppendLine($"# Work Items in Module");
-                result.AppendLine();
-                result.AppendLine($"- **Space**: {space}");
-                result.AppendLine($"- **Document ID**: {documentId}");
-
-                if (isHistoricalQuery)
-                {
-                    result.AppendLine($"- **Revision**: {revision}");
-                }
-
-                if (typeList != null && typeList.Count > 0 && !isHistoricalQuery)
-                {
-                    result.AppendLine($"- **Filtered Types**: {string.Join(", ", typeList)}");
-                }
-
-                result.AppendLine($"- **Total Work Items**: {workItems.Length}");
-
-                if (isHistoricalQuery && revisionMetadata != null)
-                {
-                    var historicalCount = revisionMetadata.Values.Count(m => m.IsHistorical);
-                    var currentCount = workItems.Length - historicalCount;
-                    result.AppendLine($"- **Historical Items** (different from HEAD): {historicalCount}");
-                    result.AppendLine($"- **Current Items** (same as HEAD): {currentCount}");
-                }
-
-                result.AppendLine();
-
-                foreach (var workItem in workItems)
-                {
-                    if (workItem is null)
-                    {
-                        continue;
-                    }
-
-                    var lastUpdated = workItem.updatedSpecified ? workItem.updated.ToString("yyyy-MM-dd HH:mm:ss") : "N/A";
-
-                    if (isHistoricalQuery && revisionMetadata != null && workItem.id != null && revisionMetadata.TryGetValue(workItem.id, out var metadata))
-                    {
-                        // Historical query - show revision status
-                        var revisionStatus = metadata.IsHistorical ? "HISTORICAL" : "CURRENT";
-                        result.AppendLine($"## WorkItem (id={workItem.id ?? "N/A"}, type={workItem.type?.id ?? "N/A"}, status={revisionStatus})");
-                        result.AppendLine();
-                        result.AppendLine($"- **Revision**: {metadata.Revision} (HEAD: {metadata.HeadRevision})");
-                    }
-                    else
-                    {
-                        // Current query - use original format
-                        result.AppendLine($"## WorkItem (id={workItem.id ?? "N/A"}, type={workItem.type?.id ?? "N/A"}, lastUpdated={lastUpdated})");
-                        result.AppendLine();
-                    }
-
-                    result.AppendLine($"- **Outline Number**: {workItem.outlineNumber ?? "N/A"}");
-                    result.AppendLine($"- **Title**: {workItem.title ?? "N/A"}");
-                    result.AppendLine($"- **Status**: {workItem.status?.id ?? "N/A"}");
-
-                    if (!isHistoricalQuery)
-                    {
-                        // Only show lastUpdated for current queries (already shown above for current queries)
-                    }
-                    else
-                    {
-                        result.AppendLine($"- **Last Updated**: {lastUpdated}");
-                    }
-
+                    // Current query - use original format
+                    result.AppendLine($"## WorkItem (id={workItem.id ?? "N/A"}, type={workItem.type?.id ?? "N/A"}, lastUpdated={lastUpdated})");
                     result.AppendLine();
-
-                    if (!string.IsNullOrWhiteSpace(workItem.description?.content))
-                    {
-                        var markdown = polarionClient.ConvertWorkItemToMarkdown(workItem.id ?? "unknown", workItem);
-                        result.AppendLine("### Description");
-                        result.AppendLine();
-                        result.AppendLine(markdown);
-                        result.AppendLine();
-                    }
                 }
 
-                return result.ToString();
+                result.AppendLine($"- **Outline Number**: {workItem.outlineNumber ?? "N/A"}");
+                result.AppendLine($"- **Title**: {workItem.title ?? "N/A"}");
+                result.AppendLine($"- **Status**: {workItem.status?.id ?? "N/A"}");
+
+                if (!isHistoricalQuery)
+                {
+                    // Only show lastUpdated for current queries (already shown above for current queries)
+                }
+                else
+                {
+                    result.AppendLine($"- **Last Updated**: {lastUpdated}");
+                }
+
+                result.AppendLine();
+
+                if (!string.IsNullOrWhiteSpace(workItem.description?.content))
+                {
+                    var markdown = polarionClient.ConvertWorkItemToMarkdown(workItem.id ?? "unknown", workItem);
+                    result.AppendLine("### Description");
+                    result.AppendLine();
+                    result.AppendLine(markdown);
+                    result.AppendLine();
+                }
             }
-            catch (Exception ex)
-            {
-                return $"ERROR: Failed due to exception '{ex.Message}'";
-            }
+
+            return result.ToString();
+        }
+        catch (Exception ex)
+        {
+            return $"ERROR: Failed due to exception '{ex.Message}'";
+
         }
     }
 }
