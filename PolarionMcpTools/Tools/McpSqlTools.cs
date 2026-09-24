@@ -32,7 +32,11 @@ public sealed class McpSqlTools
                  "Example: \"SELECT item.C_PK FROM WORKITEM item INNER JOIN PROJECT proj ON proj.C_URI = item.FK_URI_PROJECT " +
                  "INNER JOIN CF_WORKITEM cf ON cf.FK_WORKITEM = item.C_PK WHERE proj.C_ID = 'Starlight_Main' " +
                  "AND item.C_TYPE = 'requirement' AND cf.C_NAME = 'customFieldA' AND cf.C_STRING_VALUE LIKE '%STR-1234%'\". " +
-                 "Writes/DDL, statement stacking (';'), SQL comments, and parentheses inside string literals are rejected. " +
+                 "Writes/DDL, statement stacking (';'), SQL comments, parentheses inside string literals, double-quoted " +
+                 "identifiers, '$', '\\', prefixed literals (E'', N''), and any function other than LOWER, UPPER, " +
+                 "COALESCE, CAST, COUNT, LENGTH, TRIM, SUBSTRING are rejected. " +
+                 "Polarion returns the same bare 'Query failed' (error 1054) when zero rows match as when the SQL is " +
+                 "rejected; if you get it, loosen the WHERE clause before assuming the SQL is wrong. " +
                  "Results are always limited to this endpoint's project: the server intersects every query with the " +
                  "project id. This tool runs under the same Polarion credential and the same project access checks as " +
                  "every other tool, and is only available when the server operator has enabled it.")]
@@ -91,70 +95,79 @@ public sealed class McpSqlTools
 
         var luceneQuery = BuildSqlLuceneQuery(sqlQuery, luceneFilter);
 
-        await using (var scope = _serviceProvider.CreateAsyncScope())
+        await using var scope = _serviceProvider.CreateAsyncScope();
+        var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
+        var clientResult = await clientFactory.CreateClientAsync();
+        if (clientResult.IsFailed)
         {
-            var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
-            var clientResult = await clientFactory.CreateClientAsync();
-            if (clientResult.IsFailed)
+            return clientResult.Errors.First().ToString() ?? "Internal Error: unknown error when creating Polarion client";
+        }
+
+        var polarionClient = clientResult.Value;
+
+        try
+        {
+            var fieldList = McpTools.GetDefaultFieldList();
+
+            // The 3-argument overload leaves includeAllProjects at its default (false), so
+            // Polarion keeps the project.id filter and results stay within the route project.
+            //
+            // SDK limitation: SearchWorkitemAsync has no page/limit parameter, so the full
+            // matching result set is materialized in memory before maxResults is applied below.
+            // This is a pre-existing constraint that cannot be resolved without API changes.
+            var searchResult = await polarionClient.SearchWorkitemAsync(
+                luceneQuery,
+                sortField,
+                fieldList);
+
+            if (searchResult.IsFailed)
             {
-                return clientResult.Errors.First().ToString() ?? "Internal Error: unknown error when creating Polarion client";
-            }
+                // Polarion echoes the query in its error text; redact it so words in the query
+                // (e.g. "timeout", "syntax") cannot drive the classification below.
+                var errorMsg = McpTools.RedactQueryEcho(
+                    searchResult.Errors.FirstOrDefault()?.ToString() ?? "Unknown error",
+                    luceneQuery, sqlQuery);
 
-            var polarionClient = clientResult.Value;
-
-            try
-            {
-                var fieldList = McpTools.GetDefaultFieldList();
-
-                // The 3-argument overload leaves includeAllProjects at its default (false), so
-                // Polarion keeps the project.id filter and results stay within the route project.
-                //
-                // SDK limitation: SearchWorkitemAsync has no page/limit parameter, so the full
-                // matching result set is materialized in memory before maxResults is applied below.
-                // This is a pre-existing constraint that cannot be resolved without API changes.
-                var searchResult = await polarionClient.SearchWorkitemAsync(
-                    luceneQuery,
-                    sortField,
-                    fieldList);
-
-                if (searchResult.IsFailed)
-                {
-                    var errorMsg = searchResult.Errors.FirstOrDefault()?.ToString() ?? "Unknown error";
-
-                    if (errorMsg.Contains("timed out", StringComparison.OrdinalIgnoreCase) ||
-                        errorMsg.Contains("timeout", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return $"ERROR: (1056) SQL query timed out before Polarion returned results. " +
-                               $"Add more selective WHERE conditions to reduce the result set. Query: '{luceneQuery}'";
-                    }
-
-                    if (errorMsg.Contains("parse", StringComparison.OrdinalIgnoreCase) ||
-                        errorMsg.Contains("syntax", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return $"ERROR: (1053) Invalid SQL/Lucene query syntax. Query: '{luceneQuery}'. Error: {errorMsg}.";
-                    }
-
-                    return $"ERROR: (1054) Failed to search work items. Error: {errorMsg}";
-                }
-
-                var workItems = searchResult.Value;
-                if (workItems == null || workItems.Length == 0)
-                {
-                    return $"No work items matching the SQL query found in project. Lucene query used: {luceneQuery}";
-                }
-
-                return McpTools.FormatResults(workItems, sqlQuery, luceneQuery, itemTypes: null, statusFilter: null, sortField, maxResults ?? 50);
-            }
-            catch (Exception ex)
-            {
-                if (ex is TimeoutException || ex.Message.Contains("timed out", StringComparison.OrdinalIgnoreCase))
+                if (McpTools.IsTimeoutError(errorMsg))
                 {
                     return $"ERROR: (1056) SQL query timed out before Polarion returned results. " +
                            $"Add more selective WHERE conditions to reduce the result set. Query: '{luceneQuery}'";
                 }
 
-                return $"ERROR: Failed due to exception '{ex.Message}'";
+                if (errorMsg.Contains("parse", StringComparison.OrdinalIgnoreCase) ||
+                    errorMsg.Contains("syntax", StringComparison.OrdinalIgnoreCase))
+                {
+                    return $"ERROR: (1053) Invalid SQL/Lucene query syntax. Query: '{luceneQuery}'. Error: {errorMsg}.";
+                }
+
+                if (McpTools.IsBareQueryFailed(errorMsg))
+                {
+                    return "ERROR: (1054) Polarion returned no detail: either zero rows matched or the SQL was " +
+                           "rejected. Try loosening the WHERE clause; if it still fails, check the column and " +
+                           $"table names. Query: '{luceneQuery}'";
+                }
+
+                return $"ERROR: (1054) Failed to search work items. Error: {errorMsg}";
             }
+
+            var workItems = searchResult.Value;
+            if (workItems == null || workItems.Length == 0)
+            {
+                return $"No work items matching the SQL query found in project. Lucene query used: {luceneQuery}";
+            }
+
+            return McpTools.FormatResults(workItems, sqlQuery, luceneQuery, itemTypes: null, statusFilter: null, sortField, maxResults ?? 50);
+        }
+        catch (Exception ex)
+        {
+            if (ex is TimeoutException || ex.Message.Contains("timed out", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"ERROR: (1056) SQL query timed out before Polarion returned results. " +
+                       $"Add more selective WHERE conditions to reduce the result set. Query: '{luceneQuery}'";
+            }
+
+            return $"ERROR: Failed due to exception '{ex.Message}'";
+
         }
     }
 

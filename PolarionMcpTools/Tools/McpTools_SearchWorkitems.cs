@@ -71,99 +71,101 @@ public sealed partial class McpTools
             return $"ERROR: (104) Invalid sortBy value '{sortBy}'. Must be one of: {string.Join(", ", validSortFields)}.";
         }
 
-        await using (var scope = _serviceProvider.CreateAsyncScope())
+        await using var scope = _serviceProvider.CreateAsyncScope();
+        var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
+        var clientResult = await clientFactory.CreateClientAsync();
+        if (clientResult.IsFailed)
         {
-            var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
-            var clientResult = await clientFactory.CreateClientAsync();
-            if (clientResult.IsFailed)
+            return clientResult.Errors.First().ToString() ?? "Internal Error: unknown error when creating Polarion client";
+        }
+
+        var polarionClient = clientResult.Value;
+
+        // Hoist the variable so the catch block can include it in timeout error messages.
+        var luceneQuery = BuildLuceneQuery(searchQuery, itemTypes, statusFilter);
+
+        try
+        {
+            // Prepend an explicit project.id scope so results are always constrained to this
+            // endpoint's project regardless of the SOAP session's active project.
+            var projectConfig = GetCurrentProjectConfig();
+            var projectId = projectConfig?.SessionConfig?.ProjectId;
+            if (!string.IsNullOrWhiteSpace(projectId))
             {
-                return clientResult.Errors.First().ToString() ?? "Internal Error: unknown error when creating Polarion client";
+                luceneQuery = $"project.id:{projectId} AND ({luceneQuery})";
             }
 
-            var polarionClient = clientResult.Value;
+            // Get field list
+            var fieldList = GetDefaultFieldList();
 
-            // Hoist the variable so the catch block can include it in timeout error messages.
-            var luceneQuery = BuildLuceneQuery(searchQuery, itemTypes, statusFilter);
+            // Call Polarion API
+            var searchResult = await polarionClient.SearchWorkitemAsync(
+                luceneQuery,
+                sortField,
+                fieldList);
 
-            try
+            if (searchResult.IsFailed)
             {
-                // Prepend an explicit project.id scope so results are always constrained to this
-                // endpoint's project regardless of the SOAP session's active project.
-                var projectConfig = GetCurrentProjectConfig();
-                var projectId = projectConfig?.SessionConfig?.ProjectId;
-                if (!string.IsNullOrWhiteSpace(projectId))
+                // Polarion echoes the query in its error text; redact it so words in the query
+                // (e.g. "timeout", "syntax") cannot drive the classification below.
+                var errorMsg = RedactQueryEcho(
+                    searchResult.Errors.FirstOrDefault()?.ToString() ?? "Unknown error",
+                    luceneQuery, searchQuery);
+
+                if (errorMsg.Contains("MaxReceivedMessageSize", StringComparison.OrdinalIgnoreCase) ||
+                    errorMsg.Contains("message size quota", StringComparison.OrdinalIgnoreCase))
                 {
-                    luceneQuery = $"project.id:{projectId} AND ({luceneQuery})";
+                    return $"ERROR: (1047) Search returned too many results for the SOAP transport limit. " +
+                           $"Narrow the query (add type:, status:, or date filters) or use search_workitems_sql " +
+                           $"with a WHERE clause to reduce the result set. Query: '{luceneQuery}'";
                 }
 
-                // Get field list
-                var fieldList = GetDefaultFieldList();
-
-                // Call Polarion API
-                var searchResult = await polarionClient.SearchWorkitemAsync(
-                    luceneQuery,
-                    sortField,
-                    fieldList);
-
-                if (searchResult.IsFailed)
+                if (errorMsg.Contains("maximum allowed limit", StringComparison.OrdinalIgnoreCase) ||
+                    errorMsg.Contains("100,000", StringComparison.OrdinalIgnoreCase))
                 {
-                    var errorMsg = searchResult.Errors.FirstOrDefault()?.ToString() ?? "Unknown error";
-
-                    if (errorMsg.Contains("MaxReceivedMessageSize", StringComparison.OrdinalIgnoreCase) ||
-                        errorMsg.Contains("message size quota", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return $"ERROR: (1047) Search returned too many results for the SOAP transport limit. " +
-                               $"Narrow the query (add type:, status:, or date filters) or use search_workitems_sql " +
-                               $"with a WHERE clause to reduce the result set. Query: '{luceneQuery}'";
-                    }
-
-                    if (errorMsg.Contains("maximum allowed limit", StringComparison.OrdinalIgnoreCase) ||
-                        errorMsg.Contains("100,000", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return $"ERROR: (1048) Query matches more than Polarion's 100,000 object limit. " +
-                               $"Add more filters (type:, status:, document.id:, etc.) to narrow the result set. " +
-                               $"Query: '{luceneQuery}'";
-                    }
-
-                    if (errorMsg.Contains("timed out", StringComparison.OrdinalIgnoreCase) ||
-                        errorMsg.Contains("timeout", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return $"ERROR: (1049) Search timed out before Polarion returned results. The query is likely " +
-                               $"too broad. Narrow it (add type:, status:, document.id:, or date filters) or use " +
-                               $"search_workitems_sql with a WHERE clause. Query: '{luceneQuery}'";
-                    }
-
-                    if (errorMsg.Contains("parse", StringComparison.OrdinalIgnoreCase) ||
-                        errorMsg.Contains("syntax", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return $"ERROR: (1046) Invalid search query syntax. Query: '{luceneQuery}'. " +
-                               $"Error: {errorMsg}. Try simplifying your search.";
-                    }
-
-                    return $"ERROR: (1045) Failed to search work items. Error: {errorMsg}";
+                    return $"ERROR: (1048) Query matches more than Polarion's 100,000 object limit. " +
+                           $"Add more filters (type:, status:, document.id:, etc.) to narrow the result set. " +
+                           $"Query: '{luceneQuery}'";
                 }
 
-                var workItems = searchResult.Value;
-                if (workItems == null || workItems.Length == 0)
-                {
-                    return $"No work items matching '{searchQuery}' found in project. " +
-                           $"Lucene query used: {luceneQuery}";
-                }
-
-                // Format and return results
-                return FormatResults(workItems, searchQuery, luceneQuery, itemTypes, statusFilter, sortField, maxResults ?? 50);
-            }
-            catch (Exception ex)
-            {
-                if (ex is TimeoutException || ex.Message.Contains("timed out", StringComparison.OrdinalIgnoreCase))
+                if (IsTimeoutError(errorMsg))
                 {
                     return $"ERROR: (1049) Search timed out before Polarion returned results. The query is likely " +
                            $"too broad. Narrow it (add type:, status:, document.id:, or date filters) or use " +
                            $"search_workitems_sql with a WHERE clause. Query: '{luceneQuery}'";
                 }
 
-                return $"ERROR: Failed due to exception '{ex.Message}'";
+                if (errorMsg.Contains("parse", StringComparison.OrdinalIgnoreCase) ||
+                    errorMsg.Contains("syntax", StringComparison.OrdinalIgnoreCase))
+                {
+                    return $"ERROR: (1046) Invalid search query syntax. Query: '{luceneQuery}'. " +
+                           $"Error: {errorMsg}. Try simplifying your search.";
+                }
+
+                return $"ERROR: (1045) Failed to search work items. Error: {errorMsg}";
             }
+
+            var workItems = searchResult.Value;
+            if (workItems == null || workItems.Length == 0)
+            {
+                return $"No work items matching '{searchQuery}' found in project. " +
+                       $"Lucene query used: {luceneQuery}";
+            }
+
+            // Format and return results
+            return FormatResults(workItems, searchQuery, luceneQuery, itemTypes, statusFilter, sortField, maxResults ?? 50);
+        }
+        catch (Exception ex)
+        {
+            if (ex is TimeoutException || ex.Message.Contains("timed out", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"ERROR: (1049) Search timed out before Polarion returned results. The query is likely " +
+                       $"too broad. Narrow it (add type:, status:, document.id:, or date filters) or use " +
+                       $"search_workitems_sql with a WHERE clause. Query: '{luceneQuery}'";
+            }
+
+            return $"ERROR: Failed due to exception '{ex.Message}'";
+
         }
     }
 
@@ -352,9 +354,9 @@ public sealed partial class McpTools
         {
             var c = query[i];
 
-            // Lucene backslash-escaped quote: \" is a literal " char, NOT a phrase delimiter.
-            // Consume both characters so the " does not flip inPhrase.
-            if (c == '\\' && i + 1 < query.Length && query[i + 1] == '"')
+            // Lucene backslash-escape: \x is the literal character x. An escaped " does not flip
+            // inPhrase and an escaped ( or ) does not change depth. Consume both characters.
+            if (c == '\\' && i + 1 < query.Length)
             {
                 i += 2;
                 continue;
@@ -398,6 +400,40 @@ public sealed partial class McpTools
     /// </summary>
     internal static bool IsSafeIdentifier(string? value)
         => !string.IsNullOrEmpty(value) && SafeIdentifierRegex.IsMatch(value);
+
+    /// <summary>
+    /// Replaces every occurrence of the submitted query text in a Polarion error message with a
+    /// placeholder, so error classification only sees Polarion's own words.
+    /// </summary>
+    internal static string RedactQueryEcho(string errorMsg, params string?[] queries)
+    {
+        foreach (var query in queries)
+        {
+            if (!string.IsNullOrEmpty(query))
+            {
+                errorMsg = errorMsg.Replace(query, "<query>", StringComparison.Ordinal);
+            }
+        }
+
+        return errorMsg;
+    }
+
+    /// <summary>
+    /// True when a (query-redacted) Polarion error message describes a WCF transport timeout.
+    /// </summary>
+    internal static bool IsTimeoutError(string errorMsg)
+        => errorMsg.Contains("TimeoutException", StringComparison.Ordinal) ||
+           errorMsg.Contains("SendTimeout", StringComparison.Ordinal) ||
+           errorMsg.Contains("timed out", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// True when a (query-redacted) Polarion error message is bare "Query failed" with no detail.
+    /// Polarion returns this for zero matching rows, a missing WHERE clause, and rejected SQL alike.
+    /// </summary>
+    internal static bool IsBareQueryFailed(string errorMsg)
+        => errorMsg.Contains("Query failed", StringComparison.OrdinalIgnoreCase) &&
+           !errorMsg.Contains("parse", StringComparison.OrdinalIgnoreCase) &&
+           !errorMsg.Contains("syntax", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// True when <paramref name="value"/> is safe to pass as a Polarion space name or document
