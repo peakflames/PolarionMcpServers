@@ -52,6 +52,8 @@ public sealed class LuceneDetectorHardeningTests
     [InlineData("\"a (b\"")]              // '(' inside a phrase is literal text
     [InlineData("category.KEY:MyCategory AND (timeout)")]
     [InlineData("plain text")]
+    [InlineData("title:foo\\(bar")]          // escaped '(' is a literal char, not a group
+    [InlineData("(a\\) OR b)")]              // escaped ')' inside a real group
     public void HasBalancedLuceneGrouping_AcceptsBalanced(string query)
     {
         McpTools.HasBalancedLuceneGrouping(query).Should().BeTrue();
@@ -61,6 +63,7 @@ public sealed class LuceneDetectorHardeningTests
     [InlineData("x)) AND project.id:other OR ((y")]
     [InlineData("a) OR project.id:other OR (b")]
     [InlineData("(unclosed")]
+    [InlineData("a\\\\) OR project.id:other OR (b")] // \\ is an escaped backslash; the ) is real
     [InlineData("\"unterminated phrase")]
     // Escaped-quote bypass: the attacker uses \" (Lucene backslash-escape for a literal ")
     // to make the naive toggler think the ) is "inside a phrase" when Lucene sees it as a
