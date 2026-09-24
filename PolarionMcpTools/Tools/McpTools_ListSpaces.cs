@@ -9,46 +9,45 @@ public sealed partial class McpTools
     {
         string? returnMsg;
 
-        await using (var scope = _serviceProvider.CreateAsyncScope())
+        await using var scope = _serviceProvider.CreateAsyncScope();
+        var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
+        var clientResult = await clientFactory.CreateClientAsync();
+        if (clientResult.IsFailed)
         {
-            var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
-            var clientResult = await clientFactory.CreateClientAsync();
-            if (clientResult.IsFailed)
+            return clientResult.Errors.First().ToString() ?? "ERROR: Unknown error when creating Polarion client";
+        }
+
+        var polarionClient = clientResult.Value;
+
+        try
+        {
+            // Get the current project configuration to check for blacklist pattern
+            var projectConfig = GetCurrentProjectConfig();
+            string? blacklistPattern = projectConfig?.BlacklistSpaceContainingMatch;
+
+            var spacesResult = await polarionClient.GetSpacesAsync(blacklistPattern);
+            if (spacesResult.IsFailed)
             {
-                return clientResult.Errors.First().ToString() ?? "ERROR: Unknown error when creating Polarion client";
+                return $"ERROR: Failed to fetch Polarion spaces. Error: {spacesResult.Errors.First()}";
             }
 
-            var polarionClient = clientResult.Value;
+            var spaces = spacesResult.Value;
 
-            try
+            // return a comma-separated list of space names
+            var combinedWorkItems = new StringBuilder();
+            combinedWorkItems.AppendLine("# Polarion Space Names");
+            combinedWorkItems.AppendLine($"- {string.Join("\n- ", spaces)}"); // markdown bullet list
+            return combinedWorkItems.ToString();
+        }
+        catch (Exception ex)
+        {
+            returnMsg = $"ERROR: Failed to get Polarion Document Space Names due to exception '{ex.Message}'";
+            if (ex.InnerException != null)
             {
-                // Get the current project configuration to check for blacklist pattern
-                var projectConfig = GetCurrentProjectConfig();
-                string? blacklistPattern = projectConfig?.BlacklistSpaceContainingMatch;
-
-                var spacesResult = await polarionClient.GetSpacesAsync(blacklistPattern);
-                if (spacesResult.IsFailed)
-                {
-                    return $"ERROR: Failed to fetch Polarion spaces. Error: {spacesResult.Errors.First()}";
-                }
-
-                var spaces = spacesResult.Value;
-
-                // return a comma-separated list of space names
-                var combinedWorkItems = new StringBuilder();
-                combinedWorkItems.AppendLine("# Polarion Space Names");
-                combinedWorkItems.AppendLine($"- {string.Join("\n- ", spaces)}"); // markdown bullet list
-                return combinedWorkItems.ToString();
+                returnMsg += $"\nInner Exception: {ex.InnerException.Message}";
             }
-            catch (Exception ex)
-            {
-                returnMsg = $"ERROR: Failed to get Polarion Document Space Names due to exception '{ex.Message}'";
-                if (ex.InnerException != null)
-                {
-                    returnMsg += $"\nInner Exception: {ex.InnerException.Message}";
-                }
-                return returnMsg;
-            }
-        } // Close the scope
+            return returnMsg;
+        }
+        // Close the scope
     }
 }
