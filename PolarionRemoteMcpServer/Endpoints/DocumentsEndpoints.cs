@@ -25,6 +25,23 @@ public static class DocumentsEndpoints
     {
         var group = app.MapGroup("/polarion/rest/v1/projects/{projectId}/spaces/{spaceId}");
 
+        // The SDK string-interpolates spaceId and documentId directly into SQL; reject injection
+        // characters on every route in this group before any handler runs.
+        group.AddEndpointFilter(async (context, next) =>
+        {
+            foreach (var name in new[] { "spaceId", "documentId" })
+            {
+                if (context.HttpContext.Request.RouteValues.TryGetValue(name, out var raw) &&
+                    raw is string value && !McpTools.IsSafeForPolarionPathParam(value))
+                {
+                    return CreateErrorResponse("400", "Bad Request",
+                        $"{name} contains characters that are not permitted (single-quote, semicolon, or comment tokens).");
+                }
+            }
+
+            return await next(context);
+        });
+
         group.MapGet("/documents", GetDocuments)
             .RequireAuthorization(ApiScopes.PolarionRead);
         group.MapGet("/documents/{documentId}", GetDocument)
@@ -229,6 +246,25 @@ public static class DocumentsEndpoints
             return CreateErrorResponse("400", "Bad Request", "spaceId and documentId parameters cannot be empty.");
         }
 
+        // The SDK string-interpolates spaceId and documentId directly into SQL; block injection chars.
+        if (!McpTools.IsSafeForPolarionPathParam(spaceId))
+        {
+            return CreateErrorResponse("400", "Bad Request",
+                "spaceId contains characters that are not permitted (single-quote, semicolon, or comment tokens).");
+        }
+
+        if (!McpTools.IsSafeForPolarionPathParam(documentId))
+        {
+            return CreateErrorResponse("400", "Bad Request",
+                "documentId contains characters that are not permitted (single-quote, semicolon, or comment tokens).");
+        }
+
+        if (revision != null && (revision.Length == 0 || (revision != "-1" && !revision.All(char.IsDigit))))
+        {
+            return CreateErrorResponse("400", "Bad Request",
+                "revision must be '-1' for the latest revision or a positive integer revision ID.");
+        }
+
         // Get project config - matches against SessionConfig.ProjectId, no fallback
         var projectConfig = projectResolver.GetProjectConfig(projectId);
         if (projectConfig == null)
@@ -301,6 +337,13 @@ public static class DocumentsEndpoints
                 List<string>? typeList = null;
                 if (!string.IsNullOrWhiteSpace(types))
                 {
+                    // Containment: only identifier characters may reach the query filter.
+                    if (!McpTools.AreCsvTokensSafeIdentifiers(types))
+                    {
+                        return CreateErrorResponse("400", "Bad Request",
+                            "types may only contain identifier characters (letters, digits, '_', '.', '-').");
+                    }
+
                     typeList = types.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
                 }
 

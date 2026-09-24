@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+### Added
+
+- `search_workitems_sql`, an opt-in MCP tool (`SqlQueryTool:Enabled`, default `false`) that runs a validated read-only SQL query as a Polarion `SQL:(…)` filter for join-heavy reads plain Lucene cannot express. It is project-contained — the query is wrapped in a single Lucene group and Polarion intersects it with the route project's id — so the per-caller RBAC gate covers it with no per-tool rule
+- `search_workitems` and the REST search endpoint now pass raw Lucene through verbatim when the query contains a field-scoped filter, a boolean operator (AND/OR/NOT), or parenthesized grouping, instead of re-tokenizing it into an OR of terms
+
+### Changed
+
+- Upgraded the Polarion SDK to 0.3.8, which raises the WCF binding's `MaxReceivedMessageSize` to `int.MaxValue`
+- Search tools return distinct error codes: 1045–1049 for `search_workitems` (general failure, syntax, SOAP message too large, 100,000-object limit, timeout) and 1050–1056 for `search_workitems_sql` (rejected SQL, rejected Lucene filter, invalid sort, syntax, general failure or bare "Query failed", timeout). Classification ignores the query text Polarion echoes back
+- The REST search endpoint accepts a leading `-` on `sort` (e.g. `sort=-created`) again; results are returned ascending because the underlying Polarion call has no sort direction
+
+### Security
+
+- `search_workitems_sql` rejects double-quoted identifiers, `$`, `\`, prefixed string literals (`E''`, `U&''`, `N''`), and any function outside a fixed allowlist (LOWER, UPPER, COALESCE, CAST, COUNT, LENGTH, TRIM, SUBSTRING); `pg_*`, `lo_*`, `dblink*`, `set_config`, `current_setting`, `nextval`, and `setval` are rejected outright
+- Document tools and every `/spaces/{spaceId}/documents/...` REST route reject space and document IDs containing `'`, `;`, `--`, `/*`, or `*/`, since the SDK interpolates them into SQL. Empty and non-numeric `revision` values are rejected
+- `search_workitems` and the REST search endpoint now reject SQL filters, unbalanced Lucene grouping, and non-identifier type/status values, closing a path by which a query could escape the project scope the server applies
+
 ## [0.17.0] - 2026-09-08
 
 ### Added
