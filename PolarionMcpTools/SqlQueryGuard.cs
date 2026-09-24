@@ -63,6 +63,24 @@ internal static class SqlQueryGuard
     private static readonly Regex PrimaryKeyProjectionRegex = new(
         @"(?<![A-Za-z0-9_])C_PK(?![A-Za-z0-9_])", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    // Any identifier directly followed by '(' must be one of these SQL keywords or a small set of
+    // pure scalar/aggregate functions. An allowlist, not a denylist: the database exposes far
+    // more side-effecting or blocking functions (pg_sleep, query_to_xml, lo_import, dblink_exec)
+    // than any denylist can keep up with.
+    private static readonly HashSet<string> AllowedParenIdentifiers = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "SELECT", "EXISTS", "IN", "NOT", "AND", "OR", "ON", "WHERE", "FROM", "JOIN",
+        "LOWER", "UPPER", "COALESCE", "CAST", "COUNT", "LENGTH", "TRIM", "SUBSTRING",
+    };
+
+    private static readonly Regex ParenIdentifierRegex = new(
+        @"(?<![A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_]*)\s*\(", RegexOptions.Compiled);
+
+    // Second layer: known dangerous database function families, rejected even without a '('.
+    private static readonly Regex DangerousFunctionPrefixRegex = new(
+        @"(?<![A-Za-z0-9_])(PG_|LO_|DBLINK|SET_CONFIG|CURRENT_SETTING|NEXTVAL|SETVAL)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     /// <summary>Outcome of validating a candidate SQL statement.</summary>
     internal readonly record struct ValidationResult(bool IsValid, string? Error)
     {
@@ -86,6 +104,25 @@ internal static class SqlQueryGuard
         if (trimmed.Length > MaxSqlLength)
         {
             return ValidationResult.Fail($"SQL query exceeds the maximum allowed length of {MaxSqlLength} characters.");
+        }
+
+        // Reject quoting forms the literal scanner does not model. A double-quoted identifier
+        // containing ' (e.g. "'") would flip the scanner's in-string state and hide ';', UNION,
+        // or comments; $ opens dollar-quoted strings; \ is an escape in E'' strings. Polarion
+        // columns are unquoted C_* names, so none of these are needed.
+        if (trimmed.Contains('"'))
+        {
+            return ValidationResult.Fail("Double-quoted identifiers are not permitted; Polarion columns are unquoted (C_*).");
+        }
+
+        if (trimmed.Contains('$'))
+        {
+            return ValidationResult.Fail("The '$' character (dollar quoting / parameters) is not permitted.");
+        }
+
+        if (trimmed.Contains('\\'))
+        {
+            return ValidationResult.Fail("Backslashes are not permitted in SQL queries.");
         }
 
         // Strip single-quoted string literals so keyword / comment / ';' scanning only sees
@@ -127,6 +164,26 @@ internal static class SqlQueryGuard
         {
             return ValidationResult.Fail(
                 "Stored-procedure call (XP_/SP_ prefix) found; only read-only SELECT queries are permitted.");
+        }
+
+        // Reject known dangerous function families outright (defense-in-depth).
+        var dangerous = DangerousFunctionPrefixRegex.Match(code);
+        if (dangerous.Success)
+        {
+            return ValidationResult.Fail(
+                $"Database function '{dangerous.Value.ToUpperInvariant()}' is not permitted; only read-only SELECT queries are permitted.");
+        }
+
+        // Every identifier directly followed by '(' must be an allowed keyword or function.
+        foreach (Match call in ParenIdentifierRegex.Matches(code))
+        {
+            var name = call.Groups[1].Value;
+            if (!AllowedParenIdentifiers.Contains(name))
+            {
+                return ValidationResult.Fail(
+                    $"Function '{name.ToUpperInvariant()}' is not permitted. Allowed functions: " +
+                    "LOWER, UPPER, COALESCE, CAST, COUNT, LENGTH, TRIM, SUBSTRING.");
+            }
         }
 
         // Balanced parentheses: check only the literal-stripped code. TryStripStringLiterals
@@ -176,6 +233,15 @@ internal static class SqlQueryGuard
             {
                 if (c == '\'')
                 {
+                    // A prefixed literal (E'', U&'', N'', B'', X'') changes escaping rules the
+                    // scanner does not model; reject it.
+                    if (i > 0 && (IsIdentChar(sql[i - 1]) || sql[i - 1] == '&'))
+                    {
+                        code = sb.ToString();
+                        error = "Prefixed string literals (E'', U&'', N'', B'', X'') are not permitted.";
+                        return false;
+                    }
+
                     inString = true;
                     sb.Append("''"); // collapse the whole literal to an empty placeholder literal
                 }
