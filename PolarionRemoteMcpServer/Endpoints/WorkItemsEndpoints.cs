@@ -502,10 +502,11 @@ public static class WorkItemsEndpoints
                 $"Invalid sort field '{sort}'. Must be one of: {string.Join(", ", validSortFields)} (prefix with '-' for descending)");
         }
 
+        // Descending sort is accepted for compatibility with existing clients, but the underlying
+        // Polarion API call has no direction parameter, so results are returned ascending.
         if (sortDescending)
         {
-            return CreateErrorResponse("400", "Bad Request",
-                "Descending sort (prefix '-') is not supported by the underlying Polarion API call on this path.");
+            Log.Debug("REST API: descending sort '{Sort}' requested; Polarion API returns ascending order", sort);
         }
 
         // Get project config
