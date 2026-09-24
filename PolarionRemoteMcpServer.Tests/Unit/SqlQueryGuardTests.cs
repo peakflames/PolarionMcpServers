@@ -392,4 +392,67 @@ public sealed class SqlQueryGuardTests
 
         result.IsValid.Should().BeTrue($"forbidden keyword inside a string literal must be ignored. Error: {result.Error}");
     }
+
+    // -------------------------------------------------------------------------
+    // Quoting-form bypasses
+    // -------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("SELECT item.\"'\" , item.C_PK FROM WORKITEM item UNION SELECT C_PK FROM USERS WHERE 'x'='x'",
+        "Double-quoted identifiers are not permitted")]
+    [InlineData("SELECT item.C_PK AS \"'\" FROM WORKITEM item; DELETE FROM WORKITEM WHERE 'x'='x'",
+        "Double-quoted identifiers are not permitted")]
+    [InlineData("SELECT item.C_PK FROM WORKITEM item WHERE item.C_TITLE = $$x'$$",
+        "'$' character")]
+    [InlineData("SELECT item.C_PK FROM WORKITEM item WHERE item.C_TITLE = E'\\''; DROP TABLE WORKITEM",
+        "Backslashes are not permitted")]
+    [InlineData("SELECT item.C_PK FROM WORKITEM item WHERE item.C_TITLE = E'abc'",
+        "Prefixed string literals")]
+    [InlineData("SELECT item.C_PK FROM WORKITEM item WHERE item.C_TITLE = U&'abc'",
+        "Prefixed string literals")]
+    [InlineData("SELECT item.C_PK FROM WORKITEM item WHERE item.C_TITLE = N'abc'",
+        "Prefixed string literals")]
+    [InlineData("SELECT item.C_PK FROM WORKITEM item WHERE item.C_TITLE LIKE '%\\(%'",
+        "Backslashes are not permitted")]
+    public void Validate_UnmodeledQuotingForms_AreRejected(string sql, string expectedError)
+    {
+        var result = SqlQueryGuard.Validate(sql);
+
+        result.IsValid.Should().BeFalse();
+        result.Error.Should().Contain(expectedError);
+    }
+
+    // -------------------------------------------------------------------------
+    // Function allowlist
+    // -------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("SELECT item.C_PK FROM WORKITEM item WHERE item.C_ID = 'a' AND pg_sleep(2) IS NOT NULL",
+        "Database function 'PG_'")]
+    [InlineData("SELECT item.C_PK FROM WORKITEM item WHERE lo_import('x') > 0",
+        "Database function 'LO_'")]
+    [InlineData("SELECT item.C_PK FROM WORKITEM item WHERE current_setting('x') = 'y'",
+        "Database function 'CURRENT_SETTING'")]
+    [InlineData("SELECT item.C_PK FROM WORKITEM item WHERE query_to_xml('x', true, true, '') IS NOT NULL",
+        "Function 'QUERY_TO_XML' is not permitted")]
+    [InlineData("SELECT item.C_PK FROM WORKITEM item WHERE item.C_ID = version ()",
+        "Function 'VERSION' is not permitted")]
+    public void Validate_DisallowedFunctions_AreRejected(string sql, string expectedError)
+    {
+        var result = SqlQueryGuard.Validate(sql);
+
+        result.IsValid.Should().BeFalse();
+        result.Error.Should().Contain(expectedError);
+    }
+
+    [Fact]
+    public void Validate_AllowedFunctions_AreAccepted()
+    {
+        var sql = "SELECT item.C_PK FROM WORKITEM item WHERE LOWER(item.C_TITLE) LIKE '%abc%' " +
+                  "AND COALESCE(item.C_STATUS, '') IN ('open') AND LENGTH(TRIM(item.C_ID)) > 0";
+
+        var result = SqlQueryGuard.Validate(sql);
+
+        result.IsValid.Should().BeTrue($"allowlisted functions must be accepted. Error: {result.Error}");
+    }
 }
