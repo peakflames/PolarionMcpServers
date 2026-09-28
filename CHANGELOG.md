@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 - Upgraded the Polarion SDK to 0.3.8, which raises the WCF binding's `MaxReceivedMessageSize` to `int.MaxValue`
 - Search tools return distinct error codes: 1045–1049 for `search_workitems` (general failure, syntax, SOAP message too large, 100,000-object limit, timeout) and 1050–1056 for `search_workitems_sql` (rejected SQL, rejected Lucene filter, invalid sort, syntax, general failure or bare "Query failed", timeout). Classification ignores the query text Polarion echoes back
+- The REST search endpoint returns `504 Gateway Timeout` with narrowing guidance when Polarion does not answer before the WCF SendTimeout, instead of a raw `500`
 - The REST search endpoint accepts a leading `-` on `sort` (e.g. `sort=-created`) again; results are returned ascending because the underlying Polarion call has no sort direction
 
 ### Security
