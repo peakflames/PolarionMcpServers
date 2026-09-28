@@ -487,26 +487,11 @@ public static class WorkItemsEndpoints
         if (pageSize < 1) pageSize = 1;
         if (pageSize > 500) pageSize = 500;
 
-        // Validate sort field and direction
-        var sortField = sort ?? "created";
-        var sortDescending = sortField.StartsWith("-");
-        if (sortDescending)
-        {
-            sortField = sortField[1..];
-        }
-
-        var validSortFields = new[] { "created", "updated", "id", "title" };
-        if (!validSortFields.Contains(sortField.ToLowerInvariant()))
+        // Validate sort field and direction ('-' prefix = descending, mapped to Polarion's '~')
+        if (!McpTools.TryParseSort(sort, out var sortField))
         {
             return CreateErrorResponse("400", "Bad Request",
-                $"Invalid sort field '{sort}'. Must be one of: {string.Join(", ", validSortFields)} (prefix with '-' for descending)");
-        }
-
-        // Descending sort is accepted for compatibility with existing clients, but the underlying
-        // Polarion API call has no direction parameter, so results are returned ascending.
-        if (sortDescending)
-        {
-            Log.Debug("REST API: descending sort '{Sort}' requested; Polarion API returns ascending order", sort);
+                $"Invalid sort field '{sort}'. Must be one of: {string.Join(", ", McpTools.ValidSortFields)} (prefix with '-' for descending)");
         }
 
         // Get project config
@@ -540,7 +525,7 @@ public static class WorkItemsEndpoints
             // Call Polarion API
             var searchResult = await polarionClient.SearchWorkitemAsync(
                 luceneQuery,
-                sortField.ToLowerInvariant(),
+                sortField,
                 fieldList);
 
             if (searchResult.IsFailed)
