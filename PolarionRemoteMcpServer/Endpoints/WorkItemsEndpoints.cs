@@ -548,7 +548,16 @@ public static class WorkItemsEndpoints
                 var errorMsg = searchResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";
                 Log.Warning("REST API: Search failed: {Error}", errorMsg);
 
-                if (errorMsg.Contains("parse", StringComparison.OrdinalIgnoreCase))
+                // Classify on the error text with the query redacted (Polarion echoes it back).
+                var classifyMsg = McpTools.RedactQueryEcho(errorMsg, luceneQuery, query);
+                if (McpTools.IsTimeoutError(classifyMsg))
+                {
+                    return CreateErrorResponse("504", "Gateway Timeout",
+                        "Search timed out before Polarion returned results. The query is likely too broad. " +
+                        "Narrow it with type:, status:, document.id:, or date filters.");
+                }
+
+                if (classifyMsg.Contains("parse", StringComparison.OrdinalIgnoreCase))
                 {
                     return CreateErrorResponse("400", "Bad Request",
                         $"Invalid Lucene query syntax: {errorMsg}");
@@ -617,6 +626,13 @@ public static class WorkItemsEndpoints
         catch (Exception ex)
         {
             Log.Error(ex, "REST API: Exception during work item search");
+            if (ex is TimeoutException || McpTools.IsTimeoutError(ex.Message))
+            {
+                return CreateErrorResponse("504", "Gateway Timeout",
+                    "Search timed out before Polarion returned results. The query is likely too broad. " +
+                    "Narrow it with type:, status:, document.id:, or date filters.");
+            }
+
             return CreateErrorResponse("500", "Internal Server Error", ex.Message);
         }
     }
