@@ -24,7 +24,8 @@ public sealed partial class McpTools
         [Description("Optional comma-separated list of status values to filter (e.g., 'open,in-progress'). Leave empty for all statuses.")]
         string? statusFilter = null,
 
-        [Description("Sort order field. Default is 'created'. Other options: 'updated', 'id', 'title'.")]
+        [Description("Sort order field. Default is 'created'. Other options: 'updated', 'id', 'title'. " +
+                     "Prefix with '-' for descending, e.g. '-updated' for the most recently modified first.")]
         string? sortBy = "created",
 
         [Description("Maximum number of results to return. Default is 50, max is 500.")]
@@ -63,12 +64,11 @@ public sealed partial class McpTools
         if (maxResults < 1) maxResults = 1;
         if (maxResults > 500) maxResults = 500;
 
-        // Validate sortBy field
-        var validSortFields = new[] { "created", "updated", "id", "title" };
-        var sortField = (sortBy ?? "created").ToLowerInvariant();
-        if (!validSortFields.Contains(sortField))
+        // Validate sortBy field; a leading '-' sorts descending (e.g. '-updated' = most recently modified first)
+        if (!TryParseSort(sortBy, out var sortField))
         {
-            return $"ERROR: (104) Invalid sortBy value '{sortBy}'. Must be one of: {string.Join(", ", validSortFields)}.";
+            return $"ERROR: (104) Invalid sortBy value '{sortBy}'. Must be one of: {string.Join(", ", ValidSortFields)}, " +
+                   "optionally prefixed with '-' for descending.";
         }
 
         await using var scope = _serviceProvider.CreateAsyncScope();
@@ -401,6 +401,26 @@ public sealed partial class McpTools
     internal static bool IsSafeIdentifier(string? value)
         => !string.IsNullOrEmpty(value) && SafeIdentifierRegex.IsMatch(value);
 
+    /// <summary>Sort fields accepted by the search tools and the REST search endpoint.</summary>
+    internal static readonly string[] ValidSortFields = { "created", "updated", "id", "title" };
+
+    /// <summary>
+    /// Parses a user sort value (<c>created</c>, <c>-updated</c>, ...) into Polarion's sort syntax,
+    /// where a leading <c>~</c> means descending. Returns false for unknown fields.
+    /// </summary>
+    internal static bool TryParseSort(string? sortBy, out string polarionSort)
+    {
+        var value = (sortBy ?? "created").Trim().ToLowerInvariant();
+        var descending = value.StartsWith('-');
+        var field = descending ? value[1..] : value;
+        polarionSort = descending ? $"~{field}" : field;
+        return ValidSortFields.Contains(field);
+    }
+
+    /// <summary>Human-readable form of a Polarion sort string for result headers.</summary>
+    internal static string DescribeSort(string polarionSort)
+        => polarionSort.StartsWith('~') ? $"{polarionSort[1..]} (descending)" : polarionSort;
+
     /// <summary>
     /// Replaces every occurrence of the submitted query text in a Polarion error message with a
     /// placeholder, so error classification only sees Polarion's own words.
@@ -509,8 +529,10 @@ public sealed partial class McpTools
         sb.AppendLine($"- **Lucene Query**: {luceneQuery}");
         sb.AppendLine($"- **Type Filter**: {itemTypes ?? "All"}");
         sb.AppendLine($"- **Status Filter**: {statusFilter ?? "All"}");
-        sb.AppendLine($"- **Sort By**: {sortField}");
-        sb.AppendLine($"- **Matching Work Items**: {Math.Min(workItems.Length, maxResults)}");
+        sb.AppendLine($"- **Sort By**: {DescribeSort(sortField)}");
+        sb.AppendLine($"- **Matching Work Items**: {workItems.Length}");
+        sb.AppendLine($"- **Returned**: {Math.Min(workItems.Length, maxResults)}" +
+                      (workItems.Length > maxResults ? $" (first {maxResults} by sort order; raise maxResults for more)" : ""));
         sb.AppendLine($"- **Max Results**: {maxResults}");
         sb.AppendLine();
 
