@@ -6,23 +6,29 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-09-30
+
 ### Added
 
-- `search_workitems_sql`, an opt-in MCP tool (`SqlQueryTool:Enabled`, default `false`) that runs a validated read-only SQL query as a Polarion `SQL:(…)` filter for join-heavy reads plain Lucene cannot express. It is project-contained — the query is wrapped in a single Lucene group and Polarion intersects it with the route project's id — so the per-caller RBAC gate covers it with no per-tool rule
-- `search_workitems` and the REST search endpoint now pass raw Lucene through verbatim when the query contains a field-scoped filter, a boolean operator (AND/OR/NOT), or parenthesized grouping, instead of re-tokenizing it into an OR of terms
+- `search_workitems_sql`, an opt-in MCP tool (`SqlQueryTool:Enabled`, default `false`) that runs a validated read-only SQL query as a Polarion `SQL:(…)` filter, for join-heavy reads plain Lucene cannot express. Results stay within the endpoint's project, so the RBAC gate covers it with no per-tool rule
+- Descending sort: a leading `-` on `sortBy` (`search_workitems`, `search_workitems_sql`) or `sort` (REST search) sorts descending, e.g. `-updated` returns the most recently modified work items first
+- `search_workitems` result headers report the total number of matching work items separately from the number returned, so truncated results are visible
+- `search_workitems` error codes for an oversized SOAP response (1047), Polarion's 100,000-object limit (1048), and a timeout (1049)
 
 ### Changed
 
+- `search_workitems` and the REST search endpoint pass raw Lucene through verbatim when the query contains a field-scoped filter, a boolean operator (AND/OR/NOT), or parenthesized grouping, instead of re-tokenizing it into an OR of terms
+- The REST search endpoint returns `504 Gateway Timeout` with guidance to narrow the query when Polarion does not respond in time, instead of `500`
 - Upgraded the Polarion SDK to 0.3.8, which raises the WCF binding's `MaxReceivedMessageSize` to `int.MaxValue`
-- Search tools return distinct error codes: 1045–1049 for `search_workitems` (general failure, syntax, SOAP message too large, 100,000-object limit, timeout) and 1050–1056 for `search_workitems_sql` (rejected SQL, rejected Lucene filter, invalid sort, syntax, general failure or bare "Query failed", timeout). Classification ignores the query text Polarion echoes back
-- The REST search endpoint returns `504 Gateway Timeout` with narrowing guidance when Polarion does not answer before the WCF SendTimeout, instead of a raw `500`
-- Descending sort: a leading `-` on `sortBy` (`search_workitems`, `search_workitems_sql`) or `sort` (REST search) now sorts descending, e.g. `-updated` returns the most recently modified work items first. Previously REST accepted `-` but returned ascending order
+
+### Fixed
+
+- The REST search endpoint ignored a leading `-` on `sort` (e.g. `sort=-created`) and returned ascending order; it now returns descending order
 
 ### Security
 
-- `search_workitems_sql` rejects double-quoted identifiers, `$`, `\`, prefixed string literals (`E''`, `U&''`, `N''`), and any function outside a fixed allowlist (LOWER, UPPER, COALESCE, CAST, COUNT, LENGTH, TRIM, SUBSTRING); `pg_*`, `lo_*`, `dblink*`, `set_config`, `current_setting`, `nextval`, and `setval` are rejected outright
-- Document tools and every `/spaces/{spaceId}/documents/...` REST route reject space and document IDs containing `'`, `;`, `--`, `/*`, or `*/`, since the SDK interpolates them into SQL. Empty and non-numeric `revision` values are rejected
-- `search_workitems` and the REST search endpoint now reject SQL filters, unbalanced Lucene grouping, and non-identifier type/status values, closing a path by which a query could escape the project scope the server applies
+- `search_workitems` and the REST search endpoint keep results within the endpoint's project, and reject SQL filters, unbalanced parentheses or quotes, and `itemTypes`/`statusFilter` values that are not plain identifiers
+- Document tools and every `/spaces/{spaceId}/documents/...` REST route reject space and document IDs containing `'`, `;`, `--`, `/*`, or `*/`, and reject empty or non-numeric `revision` values
 
 ## [0.17.0] - 2026-09-08
 
@@ -551,7 +557,8 @@ Refactor MCP server architecture and consolidate configuration
 
 Initial release
 
-[Unreleased]: https://github.com/peakflames/PolarionMcpServers/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/peakflames/PolarionMcpServers/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.14.0...v0.15.0
