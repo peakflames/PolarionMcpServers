@@ -50,7 +50,8 @@ public sealed class McpSqlTools
                      "Must not itself contain a SQL:(...) filter or unbalanced grouping.")]
         string? luceneFilter = null,
 
-        [Description("Sort order field. Default is 'created'. Other options: 'updated', 'id', 'title'.")]
+        [Description("Sort order field. Default is 'created'. Other options: 'updated', 'id', 'title'. " +
+                     "Prefix with '-' for descending, e.g. '-updated' for the most recently modified first.")]
         string? sortBy = "created",
 
         [Description("Maximum number of results to return. Default is 50, max is 500.")]
@@ -86,11 +87,10 @@ public sealed class McpSqlTools
             maxResults = 500;
         }
 
-        var validSortFields = new[] { "created", "updated", "id", "title" };
-        var sortField = (sortBy ?? "created").ToLowerInvariant();
-        if (!validSortFields.Contains(sortField))
+        if (!McpTools.TryParseSort(sortBy, out var sortField))
         {
-            return $"ERROR: (1052) Invalid sortBy value '{sortBy}'. Must be one of: {string.Join(", ", validSortFields)}.";
+            return $"ERROR: (1052) Invalid sortBy value '{sortBy}'. Must be one of: {string.Join(", ", McpTools.ValidSortFields)}, " +
+                   "optionally prefixed with '-' for descending.";
         }
 
         var luceneQuery = BuildSqlLuceneQuery(sqlQuery, luceneFilter);

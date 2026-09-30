@@ -444,7 +444,14 @@ async def run_mcp_command(subcommand: str, tool_name: Optional[str] = None,
         
         async with client:
             if subcommand == "ping":
-                await client.ping()
+                try:
+                    await client.ping()
+                except Exception as ping_error:
+                    # Newer MCP protocol versions dropped the 'ping' method; the session
+                    # handshake above already proved connectivity, so confirm with tools/list.
+                    if "not available" not in str(ping_error):
+                        raise
+                    await client.list_tools()
                 print(f"✓ MCP server is reachable at {mcp_url}")
                 return 0
             
