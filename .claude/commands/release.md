@@ -61,8 +61,16 @@ git push origin v{VERSION}
 ```
 Pushing the tag triggers `.github/workflows/build.yml`, which builds the linux-x64 binary, creates the GitHub Release, and publishes `peakflames/polarion-remote-mcp-server:{VERSION}` and `:latest` to Docker Hub. Watch it with `gh run watch` and confirm with `gh release view v{VERSION}`.
 
-## Step 8: Prepare Develop for Next Version
-- Checkout develop
+## Step 8: Merge Main Back to Develop
+Bring the release merge commit onto develop so main is always an ancestor of develop:
+```bash
+git checkout develop
+git pull origin develop
+git merge-base --is-ancestor main develop || git merge main --no-edit -m "Merge main back to develop after v{VERSION} release"
+git push origin develop
+```
+
+## Step 9: Prepare Develop for Next Version
 - Calculate next version by incrementing minor version (e.g., `0.12.0` → `0.13.0`)
 - Update `PolarionRemoteMcpServer/PolarionRemoteMcpServer.csproj`:
   - Set `<Version>` to next version
