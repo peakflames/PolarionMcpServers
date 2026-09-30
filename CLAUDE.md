@@ -189,7 +189,7 @@ python build.py stop                            # Stop when done (optional)
    - Ensure properties have proper XML documentation
 
 3. **Update PolarionConfigJsonContext**:
-   - If adding new configuration types, add a `[JsonSerializable(typeof(YourNewType))]` attribute to the `PolarionConfigJsonContext` class in `PolarionRemoteMcpServer/PolarionConfigJsonContext.cs`
+   - If adding new configuration types, add a `[JsonSerializable(typeof(YourNewType))]` attribute to the `PolarionConfigJsonContext` class in `PolarionMcpTools/PolarionConfigJsonContext.cs`
    - This is required for source generation in AOT/trimmed applications
 
 ## Adding New MCP Tools

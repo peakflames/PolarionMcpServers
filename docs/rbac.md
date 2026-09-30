@@ -22,6 +22,30 @@ Polarion MCP tool is already scoped to one project by its route, so the resource
 always the route alias, never anything read from the call's own arguments. `tools/list` is not
 filtered — every caller sees the same tool list; RBAC only gates whether a `tools/call` runs.
 
+## The opt-in SQL tool and project containment
+
+`search_workitems_sql` (off unless `SqlQueryTool:Enabled=true`) is covered by the same
+membership check as every other tool, with **no per-tool rule**, because it is project-contained
+the same way the other tools are:
+
+- The validated SQL is wrapped in a single Lucene group (`(SQL:(…))`, or `(SQL:(…) AND (filter))`),
+  and the tool never passes `includeAllProjects`. Polarion therefore AND-s `project.id:{route}`
+  onto the query, and — because the outer group never closes before the end of the expression —
+  that suffix cannot be re-associated with a caller-supplied `OR`. The `SqlQueryGuard` additionally
+  rejects parentheses inside SQL string literals, which would otherwise close Polarion's `SQL:(`
+  term early. So the resource being authorized is still the route alias, never anything derived from
+  the SQL text.
+
+**Accepted residual.** The tool still lets a caller ask join-heavy questions whose answer is a
+yes/no oracle about whether data exists in *another* project (e.g. a join that returns rows only if
+a linked item exists elsewhere), and heavy joins cost more server time than a plain Lucene search.
+That is why it is off by default, length- and shape-bounded by the guard, and audited under
+`ToolName=search_workitems_sql` like any other call. Note: this audit only applies to the HTTP
+server (`PolarionRemoteMcpServer`). The stdio server (`PolarionMcpServer`) does not register an
+RBAC layer or audit sink; project containment via `project.id` still holds, but no per-call audit
+record is produced on that deployment path. Operators who cannot accept this residual should leave
+it disabled.
+
 ## The ordered decision contract
 
 Read top to bottom. There is no catch-all allow branch:
