@@ -240,6 +240,11 @@ public class Program
             .WithHttpTransport(o => o.Stateless = true)
             .WithTools<PolarionMcpTools.McpTools>();
 
+        // Opt-in SQL query tool: registered only when SqlQueryTool:Enabled=true.
+        var sqlToolEnabled = mcpBuilder.AddSqlQueryTool(builder.Configuration);
+        Log.Information("SQL query tool ({Key}): {State}",
+            SqlQueryToolRegistration.EnabledKey, sqlToolEnabled ? "enabled" : "disabled");
+
         // McpAuth defaults off (McpAuth:Enabled unset or false) — AddMcpAuth returns false
         // without registering anything, so anonymous MCP access is unchanged unless a
         // deployment opts in explicitly.

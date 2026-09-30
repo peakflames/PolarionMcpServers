@@ -39,123 +39,138 @@ public sealed partial class McpTools
             return "ERROR: (102) No search query was provided.";
         }
 
-        await using (var scope = _serviceProvider.CreateAsyncScope())
+        // The SDK string-interpolates space and documentId directly into SQL; block injection chars.
+        if (!IsSafeForPolarionPathParam(space))
         {
-            var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
-            var clientResult = await clientFactory.CreateClientAsync();
-            if (clientResult.IsFailed)
+            return "ERROR: (103) space contains characters that are not permitted (single-quote, semicolon, or comment tokens).";
+        }
+
+        if (!IsSafeForPolarionPathParam(documentId))
+        {
+            return "ERROR: (104) documentId contains characters that are not permitted (single-quote, semicolon, or comment tokens).";
+        }
+
+        // revision must be "-1" (latest) or a non-negative integer.
+        if (string.IsNullOrEmpty(revision) || (revision != "-1" && !revision.All(char.IsDigit)))
+        {
+            return "ERROR: (105) Revision must be '-1' for the latest revision or a positive integer revision ID.";
+        }
+
+        await using var scope = _serviceProvider.CreateAsyncScope();
+        var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
+        var clientResult = await clientFactory.CreateClientAsync();
+        if (clientResult.IsFailed)
+        {
+            return clientResult.Errors.First().ToString() ?? "Internal Error (3584) unknown error when creating Polarion client";
+        }
+
+        var polarionClient = clientResult.Value;
+
+        try
+        {
+            // Get all work items from the module, using revision-aware API when needed
+            WorkItem[] allWorkItems;
+
+            if (revision == "-1")
             {
-                return clientResult.Errors.First().ToString() ?? "Internal Error (3584) unknown error when creating Polarion client";
+                // Latest revision - use standard query
+                var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(
+                    space,
+                    documentId,
+                    null); // Get all types
+
+                if (workItemsResult.IsFailed)
+                {
+                    return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}'. Error: {workItemsResult.Errors.First().Message}";
+                }
+
+                allWorkItems = workItemsResult.Value;
+            }
+            else
+            {
+                // Specific revision - use baseline revision API
+                var workItemsResult = await polarionClient.GetWorkItemsByModuleRevisionAsync(
+                    space,
+                    documentId,
+                    revision);
+
+                if (workItemsResult.IsFailed)
+                {
+                    var errorMessage = workItemsResult.Errors.First().Message;
+
+                    if (errorMessage.Contains("UnresolvableObjectException", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return $"ERROR: (1044) Document '{space}/{documentId}' not found at revision '{revision}'. " +
+                               "Use get_document_revision_history to find valid revision numbers.";
+                    }
+
+                    return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}' at revision '{revision}'. Error: {errorMessage}";
+                }
+
+                allWorkItems = workItemsResult.Value
+                    .Where(wi => wi?.WorkItem != null)
+                    .Select(wi => wi.WorkItem)
+                    .ToArray();
+            }
+            if (allWorkItems is null || allWorkItems.Length == 0)
+            {
+                return $"No work items found in module '{space}/{documentId}'.";
             }
 
-            var polarionClient = clientResult.Value;
+            // Parse search query and filter work items in memory
+            var searchMatcher = ParseSearchQuery(searchQuery);
+            var matchingWorkItems = allWorkItems
+                .Where(wi => wi != null && MatchesSearch(wi, searchMatcher))
+                .ToList();
 
-            try
+            if (matchingWorkItems.Count == 0)
             {
-                // Get all work items from the module, using revision-aware API when needed
-                WorkItem[] allWorkItems;
+                return $"No work items matching '{searchQuery}' found in document '{space}/{documentId}'. Total work items in document: {allWorkItems.Length}.";
+            }
 
-                if (revision == "-1")
+            var result = new StringBuilder();
+            var documentRevisionNumber = revision == "-1" ? "Latest" : revision;
+            result.AppendLine($"# Search Results for Polarion Work Items");
+            result.AppendLine();
+            result.AppendLine($"- **Space**: {space}");
+            result.AppendLine($"- **Document ID**: {documentId}");
+            result.AppendLine($"- **Search Query**: {searchQuery}");
+            result.AppendLine($"- **Revision**: {documentRevisionNumber}");
+            result.AppendLine($"- **Matching Work Items**: {matchingWorkItems.Count}");
+            result.AppendLine($"- **Total Work Items in Document**: {allWorkItems.Length}");
+            result.AppendLine();
+
+            foreach (var workItem in matchingWorkItems)
+            {
+                if (workItem?.id is null)
                 {
-                    // Latest revision - use standard query
-                    var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(
-                        space,
-                        documentId,
-                        null); // Get all types
-
-                    if (workItemsResult.IsFailed)
-                    {
-                        return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}'. Error: {workItemsResult.Errors.First().Message}";
-                    }
-
-                    allWorkItems = workItemsResult.Value;
-                }
-                else
-                {
-                    // Specific revision - use baseline revision API
-                    var workItemsResult = await polarionClient.GetWorkItemsByModuleRevisionAsync(
-                        space,
-                        documentId,
-                        revision);
-
-                    if (workItemsResult.IsFailed)
-                    {
-                        var errorMessage = workItemsResult.Errors.First().Message;
-
-                        if (errorMessage.Contains("UnresolvableObjectException", StringComparison.OrdinalIgnoreCase))
-                        {
-                            return $"ERROR: (1044) Document '{space}/{documentId}' not found at revision '{revision}'. " +
-                                   "Use get_document_revision_history to find valid revision numbers.";
-                        }
-
-                        return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}' at revision '{revision}'. Error: {errorMessage}";
-                    }
-
-                    allWorkItems = workItemsResult.Value
-                        .Where(wi => wi?.WorkItem != null)
-                        .Select(wi => wi.WorkItem)
-                        .ToArray();
-                }
-                if (allWorkItems is null || allWorkItems.Length == 0)
-                {
-                    return $"No work items found in module '{space}/{documentId}'.";
+                    continue;
                 }
 
-                // Parse search query and filter work items in memory
-                var searchMatcher = ParseSearchQuery(searchQuery);
-                var matchingWorkItems = allWorkItems
-                    .Where(wi => wi != null && MatchesSearch(wi, searchMatcher))
-                    .ToList();
+                var lastUpdated = workItem.updatedSpecified ? workItem.updated.ToString("yyyy-MM-dd HH:mm:ss") : "N/A";
 
-                if (matchingWorkItems.Count == 0)
-                {
-                    return $"No work items matching '{searchQuery}' found in document '{space}/{documentId}'. Total work items in document: {allWorkItems.Length}.";
-                }
-
-                var result = new StringBuilder();
-                var documentRevisionNumber = revision == "-1" ? "Latest" : revision;
-                result.AppendLine($"# Search Results for Polarion Work Items");
+                result.AppendLine($"## WorkItem (id={workItem.id}, type={workItem.type?.id ?? "N/A"}, lastUpdated={lastUpdated})");
                 result.AppendLine();
-                result.AppendLine($"- **Space**: {space}");
-                result.AppendLine($"- **Document ID**: {documentId}");
-                result.AppendLine($"- **Search Query**: {searchQuery}");
-                result.AppendLine($"- **Revision**: {documentRevisionNumber}");
-                result.AppendLine($"- **Matching Work Items**: {matchingWorkItems.Count}");
-                result.AppendLine($"- **Total Work Items in Document**: {allWorkItems.Length}");
+                result.AppendLine($"- **Outline Number**: {workItem.outlineNumber ?? "N/A"}");
+                result.AppendLine($"- **Title**: {workItem.title ?? "N/A"}");
+                result.AppendLine($"- **Status**: {workItem.status?.id ?? "N/A"}");
                 result.AppendLine();
 
-                foreach (var workItem in matchingWorkItems)
+                if (!string.IsNullOrWhiteSpace(workItem.description?.content))
                 {
-                    if (workItem?.id is null)
-                    {
-                        continue;
-                    }
-
-                    var lastUpdated = workItem.updatedSpecified ? workItem.updated.ToString("yyyy-MM-dd HH:mm:ss") : "N/A";
-
-                    result.AppendLine($"## WorkItem (id={workItem.id}, type={workItem.type?.id ?? "N/A"}, lastUpdated={lastUpdated})");
+                    var markdown = polarionClient.ConvertWorkItemToMarkdown(workItem.id, workItem);
+                    result.AppendLine("### Description");
                     result.AppendLine();
-                    result.AppendLine($"- **Outline Number**: {workItem.outlineNumber ?? "N/A"}");
-                    result.AppendLine($"- **Title**: {workItem.title ?? "N/A"}");
-                    result.AppendLine($"- **Status**: {workItem.status?.id ?? "N/A"}");
+                    result.AppendLine(markdown);
                     result.AppendLine();
-
-                    if (!string.IsNullOrWhiteSpace(workItem.description?.content))
-                    {
-                        var markdown = polarionClient.ConvertWorkItemToMarkdown(workItem.id, workItem);
-                        result.AppendLine("### Description");
-                        result.AppendLine();
-                        result.AppendLine(markdown);
-                        result.AppendLine();
-                    }
                 }
+            }
 
-                return result.ToString();
-            }
-            catch (Exception ex)
-            {
-                return $"ERROR: Failed due to exception '{ex.Message}'";
-            }
+            return result.ToString();
+        }
+        catch (Exception ex)
+        {
+            return $"ERROR: Failed due to exception '{ex.Message}'";
         }
     }
 

@@ -27,90 +27,99 @@ public sealed partial class McpTools
             return "ERROR: (101) Document ID cannot be empty.";
         }
 
-        await using (var scope = _serviceProvider.CreateAsyncScope())
+        // The SDK string-interpolates space and documentId directly into SQL; block injection chars.
+        if (!IsSafeForPolarionPathParam(space))
         {
-            var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
-            var clientResult = await clientFactory.CreateClientAsync();
-            if (clientResult.IsFailed)
+            return "ERROR: (103) space contains characters that are not permitted (single-quote, semicolon, or comment tokens).";
+        }
+
+        if (!IsSafeForPolarionPathParam(documentId))
+        {
+            return "ERROR: (104) documentId contains characters that are not permitted (single-quote, semicolon, or comment tokens).";
+        }
+
+        await using var scope = _serviceProvider.CreateAsyncScope();
+        var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
+        var clientResult = await clientFactory.CreateClientAsync();
+        if (clientResult.IsFailed)
+        {
+            return clientResult.Errors.First().ToString() ?? "Internal Error (3584) unknown error when creating Polarion client";
+        }
+
+        var polarionClient = clientResult.Value;
+
+        try
+        {
+            var location = $"{space}/{documentId}";
+            var revisionsResult = await polarionClient.GetModuleRevisionsByLocationAsync(location, limit);
+
+            if (revisionsResult.IsFailed)
             {
-                return clientResult.Errors.First().ToString() ?? "Internal Error (3584) unknown error when creating Polarion client";
+                return $"ERROR: (1044) Failed to retrieve revision history for '{location}': {revisionsResult.Errors.First().Message}";
             }
 
-            var polarionClient = clientResult.Value;
+            var revisions = revisionsResult.Value;
 
-            try
+            if (revisions == null || revisions.Length == 0)
             {
-                var location = $"{space}/{documentId}";
-                var revisionsResult = await polarionClient.GetModuleRevisionsByLocationAsync(location, limit);
+                return $"## Revision History for Document '{location}'\n\nNo revisions found.";
+            }
 
-                if (revisionsResult.IsFailed)
-                {
-                    return $"ERROR: (1044) Failed to retrieve revision history for '{location}': {revisionsResult.Errors.First().Message}";
-                }
+            var sb = new StringBuilder();
+            sb.AppendLine($"## Revision History for Document '{location}'");
+            sb.AppendLine();
 
-                var revisions = revisionsResult.Value;
+            var limitDescription = limit == -1 ? "all" : $"latest {limit}";
+            sb.AppendLine($"Showing {limitDescription} revision{(revisions.Length != 1 ? "s" : "")} (newest to oldest)");
+            sb.AppendLine();
 
-                if (revisions == null || revisions.Length == 0)
-                {
-                    return $"## Revision History for Document '{location}'\n\nNo revisions found.";
-                }
+            for (var i = 0; i < revisions.Length; i++)
+            {
+                var module = revisions[i];
+                var isLatest = (i == 0);
 
-                var sb = new StringBuilder();
-                sb.AppendLine($"## Revision History for Document '{location}'");
+                // Extract revision ID from URI (format: ...?revision=XXXXX)
+                var revisionId = ExtractRevisionIdFromUri(module.uri);
+
+                sb.AppendLine("---");
                 sb.AppendLine();
 
-                var limitDescription = limit == -1 ? "all" : $"latest {limit}";
-                sb.AppendLine($"Showing {limitDescription} revision{(revisions.Length != 1 ? "s" : "")} (newest to oldest)");
+                var revisionHeader = $"### Revision {i + 1} (ID: {revisionId})";
+                if (isLatest)
+                {
+                    revisionHeader += " (Latest)";
+                }
+                sb.AppendLine(revisionHeader);
                 sb.AppendLine();
 
-                for (var i = 0; i < revisions.Length; i++)
+                if (module.updatedSpecified)
                 {
-                    var module = revisions[i];
-                    var isLatest = (i == 0);
-
-                    // Extract revision ID from URI (format: ...?revision=XXXXX)
-                    var revisionId = ExtractRevisionIdFromUri(module.uri);
-
-                    sb.AppendLine("---");
-                    sb.AppendLine();
-
-                    var revisionHeader = $"### Revision {i + 1} (ID: {revisionId})";
-                    if (isLatest)
-                    {
-                        revisionHeader += " (Latest)";
-                    }
-                    sb.AppendLine(revisionHeader);
-                    sb.AppendLine();
-
-                    if (module.updatedSpecified)
-                    {
-                        sb.AppendLine($"- **Updated**: {module.updated:yyyy-MM-dd HH:mm:ss}");
-                    }
-
-                    if (module.updatedBy != null && !string.IsNullOrEmpty(module.updatedBy.id))
-                    {
-                        sb.AppendLine($"- **Modified By**: {module.updatedBy.id}");
-                    }
-
-                    if (!string.IsNullOrEmpty(module.title))
-                    {
-                        sb.AppendLine($"- **Title**: {module.title}");
-                    }
-
-                    if (module.status != null && !string.IsNullOrEmpty(module.status.id))
-                    {
-                        sb.AppendLine($"- **Status**: {module.status.id}");
-                    }
-
-                    sb.AppendLine();
+                    sb.AppendLine($"- **Updated**: {module.updated:yyyy-MM-dd HH:mm:ss}");
                 }
 
-                return sb.ToString();
+                if (module.updatedBy != null && !string.IsNullOrEmpty(module.updatedBy.id))
+                {
+                    sb.AppendLine($"- **Modified By**: {module.updatedBy.id}");
+                }
+
+                if (!string.IsNullOrEmpty(module.title))
+                {
+                    sb.AppendLine($"- **Title**: {module.title}");
+                }
+
+                if (module.status != null && !string.IsNullOrEmpty(module.status.id))
+                {
+                    sb.AppendLine($"- **Status**: {module.status.id}");
+                }
+
+                sb.AppendLine();
             }
-            catch (Exception ex)
-            {
-                return $"ERROR: Failed due to exception '{ex.Message}'";
-            }
+
+            return sb.ToString();
+        }
+        catch (Exception ex)
+        {
+            return $"ERROR: Failed due to exception '{ex.Message}'";
         }
     }
 

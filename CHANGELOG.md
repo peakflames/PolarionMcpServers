@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-09-30
+
+### Added
+
+- `search_workitems_sql`, an opt-in MCP tool (`SqlQueryTool:Enabled`, default `false`) that runs a validated read-only SQL query as a Polarion `SQL:(…)` filter, for join-heavy reads plain Lucene cannot express. Results stay within the endpoint's project, so the RBAC gate covers it with no per-tool rule
+- Descending sort: a leading `-` on `sortBy` (`search_workitems`, `search_workitems_sql`) or `sort` (REST search) sorts descending, e.g. `-updated` returns the most recently modified work items first
+- `search_workitems` result headers report the total number of matching work items separately from the number returned, so truncated results are visible
+- `search_workitems` error codes for an oversized SOAP response (1047), Polarion's 100,000-object limit (1048), and a timeout (1049)
+
+### Changed
+
+- `search_workitems` and the REST search endpoint pass raw Lucene through verbatim when the query contains a field-scoped filter, a boolean operator (AND/OR/NOT), or parenthesized grouping, instead of re-tokenizing it into an OR of terms
+- The REST search endpoint returns `504 Gateway Timeout` with guidance to narrow the query when Polarion does not respond in time, instead of `500`
+- Upgraded the Polarion SDK to 0.3.8, which raises the WCF binding's `MaxReceivedMessageSize` to `int.MaxValue`
+
+### Fixed
+
+- The REST search endpoint ignored a leading `-` on `sort` (e.g. `sort=-created`) and returned ascending order; it now returns descending order
+
+### Security
+
+- `search_workitems` and the REST search endpoint keep results within the endpoint's project, and reject SQL filters, unbalanced parentheses or quotes, and `itemTypes`/`statusFilter` values that are not plain identifiers
+- Document tools and every `/spaces/{spaceId}/documents/...` REST route reject space and document IDs containing `'`, `;`, `--`, `/*`, or `*/`, and reject empty or non-numeric `revision` values
+
 ## [0.17.0] - 2026-09-08
 
 ### Added
@@ -533,7 +557,8 @@ Refactor MCP server architecture and consolidate configuration
 
 Initial release
 
-[Unreleased]: https://github.com/peakflames/PolarionMcpServers/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/peakflames/PolarionMcpServers/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.14.0...v0.15.0

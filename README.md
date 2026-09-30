@@ -18,6 +18,7 @@ MCP Tools are available for Polarion work items, including:
 - `list_workitem_types`: Lists all configured WorkItem types for the current project.
 - `search_in_document`: Searches a Polarion Document for work items matching search terms.
 - `search_workitems`: Searches for work items across the entire Polarion project using text content.
+- `search_workitems_sql` *(opt-in)*: Runs a validated read-only SQL query (a single `SELECT` over `WORKITEM` projecting `C_PK`) as a Polarion `SQL:(…)` filter, for join-heavy reads plain Lucene cannot express. Registered only when `SqlQueryTool:Enabled=true`. Results stay within the endpoint's project. See [RBAC](docs/rbac.md).
 
 ## Projects
 
@@ -225,6 +226,12 @@ Both are `false` by default, and the server's behavior is unchanged from prior r
 configure them. See [docs/authentication.md](docs/authentication.md) and
 [docs/rbac.md](docs/rbac.md) for setup, configuration reference tables, and startup validation
 errors.
+
+A third off-by-default feature is the SQL query tool:
+
+| Key | Default | Effect |
+|---|---|---|
+| `SqlQueryTool:Enabled` | `false` | When `true`, registers the `search_workitems_sql` tool on both servers. The tool is project-contained (see [docs/rbac.md](docs/rbac.md)), so it needs no per-tool RBAC rule, but it does expose a yes/no oracle about the existence of data in other projects via heavy joins — leave it disabled if that residual is unacceptable. |
 
 ## Configuring MCP Clients
 

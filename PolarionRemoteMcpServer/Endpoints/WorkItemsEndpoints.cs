@@ -461,20 +461,37 @@ public static class WorkItemsEndpoints
             return CreateErrorResponse("400", "Bad Request", "query parameter is required.");
         }
 
+        // Containment: mirror the search_workitems MCP tool. The server scopes
+        // every search to the route project by AND-ing project.id onto the caller's Lucene;
+        // a SQL:(...) filter, unbalanced grouping, or a non-identifier type/status value can
+        // re-associate or escape that scope. Reject all three before building the query.
+        if (McpTools.ContainsSqlFilter(query))
+        {
+            return CreateErrorResponse("400", "Bad Request",
+                "SQL filters (SQL:(...)) are not permitted on this endpoint.");
+        }
+
+        if (!McpTools.HasBalancedLuceneGrouping(query))
+        {
+            return CreateErrorResponse("400", "Bad Request",
+                "Unbalanced parentheses or quotes in query.");
+        }
+
+        if (!McpTools.AreCsvTokensSafeIdentifiers(types) || !McpTools.AreCsvTokensSafeIdentifiers(status))
+        {
+            return CreateErrorResponse("400", "Bad Request",
+                "types and status may only contain identifier characters (letters, digits, '_', '.', '-').");
+        }
+
         // Clamp pageSize
         if (pageSize < 1) pageSize = 1;
         if (pageSize > 500) pageSize = 500;
 
-        // Validate sort field and direction
-        var sortField = sort ?? "created";
-        var sortDescending = sortField.StartsWith("-");
-        if (sortDescending) sortField = sortField[1..];
-
-        var validSortFields = new[] { "created", "updated", "id", "title" };
-        if (!validSortFields.Contains(sortField.ToLower()))
+        // Validate sort field and direction ('-' prefix = descending, mapped to Polarion's '~')
+        if (!McpTools.TryParseSort(sort, out var sortField))
         {
             return CreateErrorResponse("400", "Bad Request",
-                $"Invalid sort field '{sort}'. Must be one of: {string.Join(", ", validSortFields)} (prefix with '-' for descending)");
+                $"Invalid sort field '{sort}'. Must be one of: {string.Join(", ", McpTools.ValidSortFields)} (prefix with '-' for descending)");
         }
 
         // Get project config
@@ -497,8 +514,10 @@ public static class WorkItemsEndpoints
 
         try
         {
-            // Build Lucene query (reuse logic from MCP tool)
-            var luceneQuery = BuildLuceneQuery(query, types, status);
+            // Build Lucene query by delegating to the shared MCP-tool builder so the REST API
+            // and the search_workitems MCP tool cannot diverge. This is what carries
+            // the raw-Lucene passthrough into the REST path.
+            var luceneQuery = McpTools.BuildLuceneQuery(query, types, status);
 
             // Default field list
             var fieldList = GetSearchFieldList();
@@ -506,7 +525,7 @@ public static class WorkItemsEndpoints
             // Call Polarion API
             var searchResult = await polarionClient.SearchWorkitemAsync(
                 luceneQuery,
-                sortField.ToLower(),
+                sortField,
                 fieldList);
 
             if (searchResult.IsFailed)
@@ -514,7 +533,16 @@ public static class WorkItemsEndpoints
                 var errorMsg = searchResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";
                 Log.Warning("REST API: Search failed: {Error}", errorMsg);
 
-                if (errorMsg.Contains("parse", StringComparison.OrdinalIgnoreCase))
+                // Classify on the error text with the query redacted (Polarion echoes it back).
+                var classifyMsg = McpTools.RedactQueryEcho(errorMsg, luceneQuery, query);
+                if (McpTools.IsTimeoutError(classifyMsg))
+                {
+                    return CreateErrorResponse("504", "Gateway Timeout",
+                        "Search timed out before Polarion returned results. The query is likely too broad. " +
+                        "Narrow it with type:, status:, document.id:, or date filters.");
+                }
+
+                if (classifyMsg.Contains("parse", StringComparison.OrdinalIgnoreCase))
                 {
                     return CreateErrorResponse("400", "Bad Request",
                         $"Invalid Lucene query syntax: {errorMsg}");
@@ -583,84 +611,21 @@ public static class WorkItemsEndpoints
         catch (Exception ex)
         {
             Log.Error(ex, "REST API: Exception during work item search");
+            if (ex is TimeoutException || McpTools.IsTimeoutError(ex.Message))
+            {
+                return CreateErrorResponse("504", "Gateway Timeout",
+                    "Search timed out before Polarion returned results. The query is likely too broad. " +
+                    "Narrow it with type:, status:, document.id:, or date filters.");
+            }
+
             return CreateErrorResponse("500", "Internal Server Error", ex.Message);
         }
     }
 
-    /// <summary>
-    /// Builds a Lucene query from user inputs.
-    /// Same logic as the search_workitems MCP tool.
-    /// </summary>
-    private static string BuildLuceneQuery(string searchQuery, string? itemTypes, string? statusFilter)
-    {
-        var queryParts = new List<string>();
-
-        // Text search (searches ALL indexed fields in Polarion)
-        var textQuery = BuildTextSearchQuery(searchQuery);
-        if (!string.IsNullOrWhiteSpace(textQuery))
-        {
-            queryParts.Add($"({textQuery})");
-        }
-
-        // Type filter: (type:requirement OR type:testCase)
-        if (!string.IsNullOrWhiteSpace(itemTypes))
-        {
-            var types = itemTypes
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(t => $"type:{t}");
-
-            var typeQuery = types.Count() == 1
-                ? types.First()
-                : $"({string.Join(" OR ", types)})";
-            queryParts.Add(typeQuery);
-        }
-
-        // Status filter: (status:open OR status:in-progress)
-        if (!string.IsNullOrWhiteSpace(statusFilter))
-        {
-            var statuses = statusFilter
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(s => $"status:{s}");
-
-            var statusQuery = statuses.Count() == 1
-                ? statuses.First()
-                : $"({string.Join(" OR ", statuses)})";
-            queryParts.Add(statusQuery);
-        }
-
-        // Combine with AND
-        return string.Join(" AND ", queryParts);
-    }
-
-    /// <summary>
-    /// Builds the text search portion of the Lucene query.
-    /// Supports exact phrases, AND logic, and OR logic (default).
-    /// </summary>
-    private static string BuildTextSearchQuery(string searchQuery)
-    {
-        var trimmed = searchQuery.Trim();
-
-        // Exact phrase: "rigging timeout"
-        if (trimmed.StartsWith('"') && trimmed.EndsWith('"') && trimmed.Length > 2)
-        {
-            return trimmed;
-        }
-
-        // AND logic: HVBIT AND timeout
-        if (trimmed.Contains(" AND ", StringComparison.OrdinalIgnoreCase))
-        {
-            return trimmed;
-        }
-
-        // OR logic (default): HVBIT timeout → (HVBIT OR timeout)
-        var terms = trimmed.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (terms.Length == 1)
-        {
-            return terms[0];
-        }
-
-        return $"({string.Join(" OR ", terms)})";
-    }
+    // NOTE: the REST API used to keep private copies of BuildLuceneQuery /
+    // BuildTextSearchQuery ("same logic as the MCP tool"). Those copies drifted out of sync
+    // with the raw-Lucene passthrough fix. They have been removed; SearchWorkItems now
+    // delegates to the single shared McpTools.BuildLuceneQuery, so there is only one builder.
 
     /// <summary>
     /// Returns the default list of fields to retrieve from Polarion for search results.
