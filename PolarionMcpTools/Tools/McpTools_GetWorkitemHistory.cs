@@ -15,6 +15,11 @@ public sealed partial class McpTools
             return "ERROR: workitemId parameter cannot be empty.";
         }
 
+        if (!IsValidWorkItemId(workitemId))
+        {
+            return WorkItemIdInvalidMessage;
+        }
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();

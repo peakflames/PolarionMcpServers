@@ -38,6 +38,11 @@ public sealed partial class McpTools
             return "ERROR: No valid WorkItem IDs provided after parsing.";
         }
 
+        if (ids.Any(id => !IsValidWorkItemId(id)))
+        {
+            return WorkItemIdInvalidMessage;
+        }
+
         // Parse link type filter
         var linkTypeFilters = string.IsNullOrWhiteSpace(linkTypeFilter)
             ? new HashSet<string>()
