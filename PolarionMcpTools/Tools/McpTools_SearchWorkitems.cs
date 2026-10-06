@@ -157,7 +157,7 @@ public sealed partial class McpTools
         }
         catch (Exception ex)
         {
-            if (ex is TimeoutException || ex.Message.Contains("timed out", StringComparison.OrdinalIgnoreCase))
+            if (ex is TimeoutException || IsTimeoutError(ex.Message))
             {
                 return $"ERROR: (1049) Search timed out before Polarion returned results. The query is likely " +
                        $"too broad. Narrow it (add type:, status:, document.id:, or date filters) or use " +

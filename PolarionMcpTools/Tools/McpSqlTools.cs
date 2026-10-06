@@ -160,7 +160,7 @@ public sealed class McpSqlTools
         }
         catch (Exception ex)
         {
-            if (ex is TimeoutException || ex.Message.Contains("timed out", StringComparison.OrdinalIgnoreCase))
+            if (ex is TimeoutException || McpTools.IsTimeoutError(ex.Message))
             {
                 return $"ERROR: (1056) SQL query timed out before Polarion returned results. " +
                        $"Add more selective WHERE conditions to reduce the result set. Query: '{luceneQuery}'";
