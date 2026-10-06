@@ -54,4 +54,20 @@ public sealed class SearchWorkitemsToolTimeoutTests
 
         result.Should().StartWith("ERROR: (1049)");
     }
+
+    [Theory]
+    [InlineData("SendTimeout exceeded")]
+    [InlineData("System.TimeoutException: The request channel did not respond")]
+    public async Task SearchWorkitems_ReturnsCode1049_OnNonTimeoutExceptionWithTimeoutMessage(string message)
+    {
+        var client = new Mock<IPolarionClient>(MockBehavior.Strict);
+        client
+            .Setup(c => c.SearchWorkitemAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<bool>()))
+            .ThrowsAsync(new InvalidOperationException(message));
+
+        var result = await NewTool(client.Object).SearchWorkitems("voltage");
+
+        result.Should().StartWith("ERROR: (1049)");
+    }
 }
