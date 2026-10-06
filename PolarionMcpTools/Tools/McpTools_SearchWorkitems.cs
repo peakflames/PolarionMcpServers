@@ -456,49 +456,6 @@ public sealed partial class McpTools
            !errorMsg.Contains("syntax", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// True when <paramref name="value"/> is safe to pass as a Polarion space name or document
-    /// ID. The Polarion SDK string-interpolates these directly into SQL, so SQL injection
-    /// characters are blocked. Spaces and dashes are allowed (real space names use them, e.g.
-    /// "My Space - Section").
-    /// </summary>
-    internal static bool IsSafeForPolarionPathParam(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return false;
-        }
-
-        return !value.Contains('\'') &&
-               !value.Contains(';') &&
-               !value.Contains("--") &&
-               !value.Contains("/*") &&
-               !value.Contains("*/");
-    }
-
-    /// <summary>
-    /// Maximum accepted length of a document title filter.
-    /// </summary>
-    internal const int MaxTitleFilterLength = 256;
-
-    /// <summary>
-    /// True when <paramref name="value"/> is safe to pass as a document title filter. The
-    /// Polarion SDK places the filter inside a SQL pattern, so in addition to the path-param
-    /// rules this also blocks the pattern wildcard <c>%</c> and the escape character <c>\</c>.
-    /// Plain-text titles (spaces, hyphens, parentheses, dots, underscores) are allowed.
-    /// </summary>
-    internal static bool IsSafeForPolarionTitleFilter(string? value)
-    {
-        if (!IsSafeForPolarionPathParam(value))
-        {
-            return false;
-        }
-
-        return value!.Length <= MaxTitleFilterLength &&
-               !value.Contains('%') &&
-               !value.Contains('\\');
-    }
-
-    /// <summary>
     /// True when every comma-separated token in <paramref name="csv"/> is a safe identifier.
     /// An empty/absent value contributes no filter and is treated as safe.
     /// </summary>
