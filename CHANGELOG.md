@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+### Security
+
+- `list_documents` validates `titleFilter` before it reaches the SDK, rejecting `'`, `;`, `--`, `/*`, `*/`, `%`, `\`, and values longer than 256 characters
+
 ## [0.18.0] - 2026-09-30
 
 ### Added
