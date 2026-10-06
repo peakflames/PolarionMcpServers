@@ -47,4 +47,21 @@ public sealed class RestInputValidationTests : IDisposable
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await response.Content.ReadAsStringAsync()).Should().Contain("revision");
     }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("/revisions")]
+    [InlineData("/linkedworkitems")]
+    [InlineData("/backlinkedworkitems")]
+    public async Task WorkItemRoutes_RejectInvalidWorkItemId(string suffix)
+    {
+        foreach (var workitemId in new[] { "WI'1", "WI 1", "-WI", "WI)" })
+        {
+            var response = await _client.GetAsync(
+                $"/polarion/rest/v1/projects/{Alias}/workitems/{Uri.EscapeDataString(workitemId)}{suffix}");
+
+            response.StatusCode.Should().Be(HttpStatusCode.BadRequest, $"workitemId '{workitemId}' on '{suffix}'");
+            (await response.Content.ReadAsStringAsync()).Should().Contain("workitemId");
+        }
+    }
 }

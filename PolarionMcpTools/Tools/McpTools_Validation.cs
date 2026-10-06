@@ -54,6 +54,13 @@ public sealed partial class McpTools
     /// </summary>
     internal const int MaxWorkItemIdLength = 64;
 
+    /// <summary>
+    /// Error returned by MCP tools for a malformed work item ID.
+    /// </summary>
+    internal const string WorkItemIdInvalidMessage =
+        "ERROR: (109) workitemId must start with a letter or digit and contain only letters, digits, " +
+        "underscores, or hyphens (at most 64 characters), e.g. 'WI-12345'.";
+
     private static readonly Regex WorkItemIdRegex =
         new(@"^[A-Za-z0-9][A-Za-z0-9_\-]*\z", RegexOptions.Compiled);
 
