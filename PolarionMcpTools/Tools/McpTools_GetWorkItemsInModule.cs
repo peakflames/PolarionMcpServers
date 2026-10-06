@@ -33,10 +33,10 @@ public sealed partial class McpTools
             return "ERROR: (101) Document ID cannot be empty.";
         }
 
-        // revision must be "-1" (latest) or a non-negative integer (baseline revision ID).
+        // revision must be "-1" (latest) or a positive integer (baseline revision ID).
         // An arbitrary string here reaches the Polarion SOAP layer and could produce
         // unexpected query shapes.
-        if (string.IsNullOrEmpty(revision) || (revision != "-1" && !revision.All(char.IsDigit)))
+        if (!IsValidRevision(revision))
         {
             return "ERROR: (102) Revision must be '-1' for the latest revision or a positive integer baseline revision ID.";
         }
