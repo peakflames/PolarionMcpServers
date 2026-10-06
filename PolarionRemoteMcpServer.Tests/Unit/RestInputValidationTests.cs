@@ -42,10 +42,11 @@ public sealed class RestInputValidationTests : IDisposable
     public async Task DocumentWorkItems_RejectsInvalidRevision(string revision)
     {
         var response = await _client.GetAsync(
-            $"/polarion/rest/v1/projects/{Alias}/spaces/MySpace/documents/MyDoc/workitems?revision={Uri.EscapeDataString(revision)}");
+            $"/polarion/rest/v1/projects/{Alias}/spaces/MySpace/documents/MyDoc/workitems?revision={Uri.EscapeDataString(revision)}",
+            TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        (await response.Content.ReadAsStringAsync()).Should().Contain("revision");
+        (await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).Should().Contain("revision");
     }
 
     [Theory]
@@ -58,10 +59,11 @@ public sealed class RestInputValidationTests : IDisposable
         foreach (var workitemId in new[] { "WI'1", "WI 1", "-WI", "WI)" })
         {
             var response = await _client.GetAsync(
-                $"/polarion/rest/v1/projects/{Alias}/workitems/{Uri.EscapeDataString(workitemId)}{suffix}");
+                $"/polarion/rest/v1/projects/{Alias}/workitems/{Uri.EscapeDataString(workitemId)}{suffix}",
+                TestContext.Current.CancellationToken);
 
             response.StatusCode.Should().Be(HttpStatusCode.BadRequest, $"workitemId '{workitemId}' on '{suffix}'");
-            (await response.Content.ReadAsStringAsync()).Should().Contain("workitemId");
+            (await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).Should().Contain("workitemId");
         }
     }
 }
