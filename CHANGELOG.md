@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+### Security
+
+- `list_documents` validates `titleFilter` before it reaches the SDK, rejecting `'`, `;`, `--`, `/*`, `*/`, `%`, `\`, and values longer than 256 characters
+- `get_workitem`, `get_workitem_history`, and `get_workitem_details` reject malformed work item IDs (anything other than a letter or digit followed by letters, digits, `_`, or `-`, up to 64 characters), and `get_workitem` rejects invalid revisions
+- Every REST `/workitems/{workitemId}` route returns `400` for a malformed work item ID
+- Document tools and the REST document work-items route reject revision `0`, signed values, and non-ASCII digits; only `-1` or a positive integer is accepted
+
+### Fixed
+
+- `search_workitems_sql` no longer rejects `ANY (...)`, `LIKE (...)`, and `ILIKE (...)` as disallowed functions
+- `search_workitems` and `search_workitems_sql` classify exceptions mentioning `SendTimeout` or `TimeoutException` as timeouts (1049 / 1056), matching the failed-result path
+- `get_document_info` validates `space` and `documentId` before doing any other work
+
 ## [0.18.0] - 2026-09-30
 
 ### Added

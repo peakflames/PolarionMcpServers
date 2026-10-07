@@ -37,8 +37,8 @@ public sealed partial class McpTools
             return "ERROR: (104) documentId contains characters that are not permitted (single-quote, semicolon, or comment tokens).";
         }
 
-        // revision must be "-1" (latest) or a non-negative integer.
-        if (string.IsNullOrEmpty(revision) || (revision != "-1" && !revision.All(char.IsDigit)))
+        // revision must be "-1" (latest) or a positive integer.
+        if (!IsValidRevision(revision))
         {
             return "ERROR: (105) Revision must be '-1' for the latest revision or a positive integer revision ID.";
         }

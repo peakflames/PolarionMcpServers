@@ -15,6 +15,16 @@ public sealed partial class McpTools
             return "ERROR: workitemId parameter cannot be empty.";
         }
 
+        if (!IsValidWorkItemId(workitemId))
+        {
+            return WorkItemIdInvalidMessage;
+        }
+
+        if (!string.IsNullOrWhiteSpace(revision) && !IsValidRevision(revision))
+        {
+            return "ERROR: (110) Revision must be '-1' for the latest revision or a positive integer revision ID.";
+        }
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();

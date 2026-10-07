@@ -63,13 +63,14 @@ internal static class SqlQueryGuard
     private static readonly Regex PrimaryKeyProjectionRegex = new(
         @"(?<![A-Za-z0-9_])C_PK(?![A-Za-z0-9_])", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    // Any identifier directly followed by '(' must be one of these SQL keywords or a small set of
-    // pure scalar/aggregate functions. An allowlist, not a denylist: the database exposes far
+    // Any identifier directly followed by '(' must be one of these SQL keywords/operators (ANY,
+    // LIKE, and ILIKE are operators, not functions) or a small set of pure scalar/aggregate functions. An allowlist, not a denylist: the database exposes far
     // more side-effecting or blocking functions (pg_sleep, query_to_xml, lo_import, dblink_exec)
     // than any denylist can keep up with.
     private static readonly HashSet<string> AllowedParenIdentifiers = new(StringComparer.OrdinalIgnoreCase)
     {
         "SELECT", "EXISTS", "IN", "NOT", "AND", "OR", "ON", "WHERE", "FROM", "JOIN",
+        "ANY", "LIKE", "ILIKE",
         "LOWER", "UPPER", "COALESCE", "CAST", "COUNT", "LENGTH", "TRIM", "SUBSTRING",
     };
 

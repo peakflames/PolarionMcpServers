@@ -259,7 +259,7 @@ public static class DocumentsEndpoints
                 "documentId contains characters that are not permitted (single-quote, semicolon, or comment tokens).");
         }
 
-        if (revision != null && (revision.Length == 0 || (revision != "-1" && !revision.All(char.IsDigit))))
+        if (revision != null && !McpTools.IsValidRevision(revision))
         {
             return CreateErrorResponse("400", "Bad Request",
                 "revision must be '-1' for the latest revision or a positive integer revision ID.");

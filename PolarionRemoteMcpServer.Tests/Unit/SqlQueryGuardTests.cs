@@ -455,4 +455,17 @@ public sealed class SqlQueryGuardTests
 
         result.IsValid.Should().BeTrue($"allowlisted functions must be accepted. Error: {result.Error}");
     }
+
+    [Theory]
+    [InlineData("SELECT item.C_PK FROM WORKITEM item WHERE item.C_PK = ANY (SELECT link.FK_WORKITEM FROM STRUCT_WORKITEM_LINKEDWORKITEMS link)")]
+    [InlineData("SELECT item.C_PK FROM WORKITEM item WHERE item.C_PK = ANY(SELECT link.FK_WORKITEM FROM STRUCT_WORKITEM_LINKEDWORKITEMS link)")]
+    [InlineData("SELECT item.C_PK FROM WORKITEM item WHERE item.C_ID LIKE ('ABC-%')")]
+    [InlineData("SELECT item.C_PK FROM WORKITEM item WHERE item.C_TITLE ILIKE ('%abc%')")]
+    [InlineData("SELECT item.C_PK FROM WORKITEM item WHERE item.C_TITLE NOT LIKE ('%abc%')")]
+    public void Validate_AnyAndLikeOperators_AreAccepted(string sql)
+    {
+        var result = SqlQueryGuard.Validate(sql);
+
+        result.IsValid.Should().BeTrue($"ANY/LIKE are operators, not functions. Error: {result.Error}");
+    }
 }
