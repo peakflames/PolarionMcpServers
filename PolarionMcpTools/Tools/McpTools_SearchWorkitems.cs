@@ -157,7 +157,7 @@ public sealed partial class McpTools
         }
         catch (Exception ex)
         {
-            if (ex is TimeoutException || ex.Message.Contains("timed out", StringComparison.OrdinalIgnoreCase))
+            if (ex is TimeoutException || IsTimeoutError(ex.Message))
             {
                 return $"ERROR: (1049) Search timed out before Polarion returned results. The query is likely " +
                        $"too broad. Narrow it (add type:, status:, document.id:, or date filters) or use " +
@@ -454,26 +454,6 @@ public sealed partial class McpTools
         => errorMsg.Contains("Query failed", StringComparison.OrdinalIgnoreCase) &&
            !errorMsg.Contains("parse", StringComparison.OrdinalIgnoreCase) &&
            !errorMsg.Contains("syntax", StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>
-    /// True when <paramref name="value"/> is safe to pass as a Polarion space name or document
-    /// ID. The Polarion SDK string-interpolates these directly into SQL, so SQL injection
-    /// characters are blocked. Spaces and dashes are allowed (real space names use them, e.g.
-    /// "My Space - Section").
-    /// </summary>
-    internal static bool IsSafeForPolarionPathParam(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return false;
-        }
-
-        return !value.Contains('\'') &&
-               !value.Contains(';') &&
-               !value.Contains("--") &&
-               !value.Contains("/*") &&
-               !value.Contains("*/");
-    }
 
     /// <summary>
     /// True when every comma-separated token in <paramref name="csv"/> is a safe identifier.

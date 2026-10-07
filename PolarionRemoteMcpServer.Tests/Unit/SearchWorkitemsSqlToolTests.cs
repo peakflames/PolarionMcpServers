@@ -174,4 +174,24 @@ public sealed class SearchWorkitemsSqlToolTests
             "the tool must let Polarion keep the project.id filter so results stay in the route project");
         capturedQuery.Should().Be("(SQL:(SELECT item.C_PK FROM WORKITEM item))");
     }
+
+    [Theory]
+    [InlineData("SendTimeout exceeded")]
+    [InlineData("System.TimeoutException: The request channel did not respond")]
+    public async Task SearchWorkitemsSql_ReturnsCode1056_OnNonTimeoutExceptionWithTimeoutMessage(string message)
+    {
+        var client = new Mock<IPolarionClient>(MockBehavior.Strict);
+        client
+            .Setup(c => c.SearchWorkitemAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<List<string>>(), It.IsAny<bool>()))
+            .ThrowsAsync(new InvalidOperationException(message));
+
+        var services = new ServiceCollection();
+        services.AddSingleton<IPolarionClientFactory>(new StubPolarionClientFactory(client.Object));
+        var tool = new McpSqlTools(services.BuildServiceProvider());
+
+        var result = await tool.SearchWorkitemsSql(ValidSql);
+
+        result.Should().StartWith("ERROR: (1056)");
+    }
 }
