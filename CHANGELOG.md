@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+### Changed
+
+- Upgraded the Polarion SDK to 0.4.1. Document reads (`get_workitems_in_module`, `get_document_outline`, `get_document_section`, `search_in_document`, and the REST document work-items route) now use `getModuleWorkItems`:
+  - `get_workitems_in_module` returns items in document order
+  - Work items pinned to a revision show their pinned values, and pinned items that were later deleted are included
+  - An empty document returns an empty result instead of error 1044, and a document that does not exist fails with a clearer message
+  - `itemTypes` is applied after the whole document is fetched, so a filtered read of a large document takes about as long as an unfiltered one
+  - Reads of a document at a revision, and of a branched document at HEAD, make fewer round trips
+
 ### Security
 
 - `list_documents` validates `titleFilter` before it reaches the SDK, rejecting `'`, `;`, `--`, `/*`, `*/`, `%`, `\`, and values longer than 256 characters
