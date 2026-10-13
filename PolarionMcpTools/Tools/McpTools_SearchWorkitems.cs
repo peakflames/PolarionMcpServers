@@ -124,14 +124,14 @@ public sealed partial class McpTools
                     errorMsg.Contains("100,000", StringComparison.OrdinalIgnoreCase))
                 {
                     return $"ERROR: (1048) Query matches more than Polarion's 100,000 object limit. " +
-                           $"Add more filters (type:, status:, document.id:, etc.) to narrow the result set. " +
+                           $"Add more filters (type:, status:, document.id:\"<space>/<docId>\", etc.) to narrow the result set. " +
                            $"Query: '{luceneQuery}'";
                 }
 
                 if (IsTimeoutError(errorMsg))
                 {
                     return $"ERROR: (1049) Search timed out before Polarion returned results. The query is likely " +
-                           $"too broad. Narrow it (add type:, status:, document.id:, or date filters) or use " +
+                           $"too broad. Narrow it (add type:, status:, document.id:\"<space>/<docId>\", or date filters) or use " +
                            $"search_workitems_sql with a WHERE clause. Query: '{luceneQuery}'";
                 }
 
@@ -160,7 +160,7 @@ public sealed partial class McpTools
             if (ex is TimeoutException || IsTimeoutError(ex.Message))
             {
                 return $"ERROR: (1049) Search timed out before Polarion returned results. The query is likely " +
-                       $"too broad. Narrow it (add type:, status:, document.id:, or date filters) or use " +
+                       $"too broad. Narrow it (add type:, status:, document.id:\"<space>/<docId>\", or date filters) or use " +
                        $"search_workitems_sql with a WHERE clause. Query: '{luceneQuery}'";
             }
 

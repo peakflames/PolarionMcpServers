@@ -553,7 +553,7 @@ public static class WorkItemsEndpoints
                 {
                     return CreateErrorResponse("504", "Gateway Timeout",
                         "Search timed out before Polarion returned results. The query is likely too broad. " +
-                        "Narrow it with type:, status:, document.id:, or date filters.");
+                        "Narrow it with type:, status:, document.id:\"<space>/<docId>\", or date filters.");
                 }
 
                 if (classifyMsg.Contains("parse", StringComparison.OrdinalIgnoreCase))
@@ -629,7 +629,7 @@ public static class WorkItemsEndpoints
             {
                 return CreateErrorResponse("504", "Gateway Timeout",
                     "Search timed out before Polarion returned results. The query is likely too broad. " +
-                    "Narrow it with type:, status:, document.id:, or date filters.");
+                    "Narrow it with type:, status:, document.id:\"<space>/<docId>\", or date filters.");
             }
 
             return CreateErrorResponse("500", "Internal Server Error", ex.Message);
