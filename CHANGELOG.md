@@ -14,6 +14,9 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
   - An empty document returns an empty result instead of error 1044, and a document that does not exist fails with error 1044 naming the document, followed by the underlying Polarion `UnresolvableObjectException`
   - `itemTypes` is applied after the whole document is fetched, so a filtered read of a large document takes about as long as an unfiltered one
   - Reads of a document at a revision, and of a branched document at HEAD, make fewer round trips
+- `get_workitems_in_module` lists pinned revisions and reports unresolvable references with a count and their URIs
+- `itemTypes` on `get_workitems_in_module` applies to revision reads as well as HEAD reads
+- The `revision` parameter of `get_workitems_in_module`, `get_document_outline`, `get_document_section`, and `search_in_document` accepts a baseline name or ID, matched against baselines of that document only. The REST API still accepts revision numbers only.
 
 ### Security
 
@@ -27,6 +30,11 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 - `search_workitems_sql` no longer rejects `ANY (...)`, `LIKE (...)`, and `ILIKE (...)` as disallowed functions
 - `search_workitems` and `search_workitems_sql` classify exceptions mentioning `SendTimeout` or `TimeoutException` as timeouts (1049 / 1056), matching the failed-result path
 - `get_document_info` validates `space` and `documentId` before doing any other work
+- Document outline and section output keeps Polarion's document order instead of re-sorting by outline number
+- Error 1044 from `get_workitems_in_module` no longer lists a third cause that does not apply to revision reads
+- Search error hints show the space-qualified `document.id` form, for example `document.id:"MySpace/MyDoc"`
+- `search_workitems_sql` describes zero-row results as an empty result, error 1053 as Polarion rejecting the SQL with its message, and error 1054 as a failed query with Polarion's message when it gives one
+- `MaxReceivedMessageSize` in `SessionConfig` (optional, default unset) now reaches the Polarion client for remote projects. Before this fix, the setting was dropped.
 
 ## [0.18.0] - 2026-09-30
 
