@@ -10,8 +10,6 @@ public sealed class TestConfigurationTests
     [Fact]
     public void TestConfiguration_Instance_ShouldLoadSuccessfully()
     {
-        TestConfiguration.SkipUnlessConfigured();
-
         // Act
         var config = TestConfiguration.Instance;
 
@@ -23,8 +21,6 @@ public sealed class TestConfigurationTests
     [Fact]
     public void TestConfiguration_Settings_ShouldHaveApiKey()
     {
-        TestConfiguration.SkipUnlessConfigured();
-
         // Arrange
         var config = TestConfiguration.Instance;
 
@@ -38,8 +34,6 @@ public sealed class TestConfigurationTests
     [Fact]
     public void TestConfiguration_Settings_ShouldHaveTestProjects()
     {
-        TestConfiguration.SkipUnlessConfigured();
-
         // Arrange
         var config = TestConfiguration.Instance;
 
@@ -54,8 +48,6 @@ public sealed class TestConfigurationTests
     [Fact]
     public void TestConfiguration_GetProject_ValidProjectId_ShouldReturnProject()
     {
-        TestConfiguration.SkipUnlessConfigured();
-
         // Arrange
         var config = TestConfiguration.Instance;
         var projectId = config.Settings.TestProjects.First().ProjectId;
@@ -71,8 +63,6 @@ public sealed class TestConfigurationTests
     [Fact]
     public void TestConfiguration_GetProject_InvalidProjectId_ShouldThrowException()
     {
-        TestConfiguration.SkipUnlessConfigured();
-
         // Arrange
         var config = TestConfiguration.Instance;
         var invalidProjectId = "NonExistentProject12345";
@@ -88,8 +78,6 @@ public sealed class TestConfigurationTests
     [Fact]
     public void TestConfiguration_GetScenario_ValidScenarioName_ShouldReturnScenario()
     {
-        TestConfiguration.SkipUnlessConfigured();
-
         // Arrange
         var config = TestConfiguration.Instance;
 
@@ -109,8 +97,6 @@ public sealed class TestConfigurationTests
     [Fact]
     public void TestConfiguration_GetScenario_InvalidScenarioName_ShouldThrowException()
     {
-        TestConfiguration.SkipUnlessConfigured();
-
         // Arrange
         var config = TestConfiguration.Instance;
         var invalidScenarioName = "NonExistentScenario12345";
@@ -126,8 +112,6 @@ public sealed class TestConfigurationTests
     [Fact]
     public void TestConfiguration_TestProjects_ShouldHaveRequiredFields()
     {
-        TestConfiguration.SkipUnlessConfigured();
-
         // Arrange
         var config = TestConfiguration.Instance;
 
@@ -144,8 +128,6 @@ public sealed class TestConfigurationTests
     [Fact]
     public void TestConfiguration_TestScenarios_ShouldHaveRequiredFields()
     {
-        TestConfiguration.SkipUnlessConfigured();
-
         // Arrange
         var config = TestConfiguration.Instance;
 
@@ -169,8 +151,6 @@ public sealed class TestConfigurationTests
     [Fact]
     public void TestConfiguration_ApiBaseUrl_ShouldBeValidUrl()
     {
-        TestConfiguration.SkipUnlessConfigured();
-
         // Arrange
         var config = TestConfiguration.Instance;
 
