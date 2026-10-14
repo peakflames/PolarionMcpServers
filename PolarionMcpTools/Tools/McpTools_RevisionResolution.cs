@@ -91,7 +91,7 @@ public sealed partial class McpTools
             }
 
             var names = string.Join("; ", candidates.Take(MaxBaselineCandidatesInError).Select(b => $"{b.id} {b.name}"));
-            return Result.Fail<string>($"ERROR: (112) No baseline named '{value}' exists for this document. Baselines for this document: {names}. Use the exact name or the baseline ID.");
+            return Result.Fail<string>($"ERROR: (112) No baseline named '{value}' exists for this document. Baselines for this document with a similar name: {names}. Use the exact name or the baseline ID.");
         }
 
         var distinctRevisions = matches.Select(b => b.baseRevision).Distinct(StringComparer.Ordinal).ToArray();
