@@ -12,6 +12,8 @@ public sealed class ExpectedWorkItemsTests
     [Fact]
     public void GetScenario_NonBranchedLatest_ShouldHaveValidData()
     {
+        TestConfiguration.SkipUnlessConfigured();
+
         // Arrange & Act
         var scenario = ExpectedWorkItems.GetScenario("NonBranchedLatest");
 
@@ -28,6 +30,8 @@ public sealed class ExpectedWorkItemsTests
     [Fact]
     public void GetScenario_BranchedLatest_ShouldHaveValidData()
     {
+        TestConfiguration.SkipUnlessConfigured();
+
         // Arrange & Act
         var scenario = ExpectedWorkItems.GetScenario("BranchedLatest");
 
@@ -44,6 +48,8 @@ public sealed class ExpectedWorkItemsTests
     [Fact]
     public void GetScenario_NonBranchedHistoricalRevision_ShouldHaveValidData()
     {
+        TestConfiguration.SkipUnlessConfigured();
+
         // Arrange & Act
         var scenario = ExpectedWorkItems.GetScenario("NonBranchedHistoricRevision");
 
@@ -60,6 +66,8 @@ public sealed class ExpectedWorkItemsTests
     [Fact]
     public void GetScenario_BranchedHistoricalRevision_ShouldHaveValidData()
     {
+        TestConfiguration.SkipUnlessConfigured();
+
         // Arrange & Act
         var scenario = ExpectedWorkItems.GetScenario("BranchedHistoricRevision");
 
@@ -76,6 +84,8 @@ public sealed class ExpectedWorkItemsTests
     [Fact]
     public void GetAllScenarios_ShouldReturnAllConfiguredScenarios()
     {
+        TestConfiguration.SkipUnlessConfigured();
+
         // Act
         var scenarios = ExpectedWorkItems.GetAllScenarios();
 
@@ -92,6 +102,8 @@ public sealed class ExpectedWorkItemsTests
     [Fact]
     public void AllTestScenarios_ShouldHaveUniqueProjectSpaceDocumentRevisionCombinations()
     {
+        TestConfiguration.SkipUnlessConfigured();
+
         // Arrange
         var scenarios = ExpectedWorkItems.GetAllScenarios();
 
@@ -107,6 +119,8 @@ public sealed class ExpectedWorkItemsTests
     [Fact]
     public void TestConfiguration_ShouldLoadFromFile()
     {
+        TestConfiguration.SkipUnlessConfigured();
+
         // Act
         var config = TestConfiguration.Instance;
 
@@ -121,6 +135,8 @@ public sealed class ExpectedWorkItemsTests
     [Fact]
     public void WorkItemIds_ShouldFollowExpectedFormat()
     {
+        TestConfiguration.SkipUnlessConfigured();
+
         // Arrange
         var allScenarios = ExpectedWorkItems.GetAllScenarios();
 
