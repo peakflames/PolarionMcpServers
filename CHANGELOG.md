@@ -35,6 +35,8 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 - Search error hints show the space-qualified `document.id` form, for example `document.id:"MySpace/MyDoc"`
 - `search_workitems_sql` describes zero-row results as an empty result, error 1053 as Polarion rejecting the SQL with its message, and error 1054 as a failed query with Polarion's message when it gives one
 - `MaxReceivedMessageSize` in `SessionConfig` (optional, default unset) now reaches the Polarion client for remote projects. Before this fix, the setting was dropped.
+- `get_document_outline` reads the document at the requested revision. Before this fix, it always read the latest revision and only labeled the output with the requested one.
+- `python build.py mcp call` receives tool replies larger than 1 MiB (the MCP Python client's default limit for a single SSE event), such as a read of a document with about 2,800 work items (about 2.2 MB)
 
 ## [0.18.0] - 2026-09-30
 
