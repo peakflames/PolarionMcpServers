@@ -134,23 +134,6 @@ public sealed class TestConfiguration
     }
 
     /// <summary>
-    /// True when a testsettings.json file or the TEST_API_KEY environment variable is present.
-    /// A present but invalid configuration still counts as configured, so it fails instead of skipping.
-    /// </summary>
-    public static bool IsConfigured =>
-        File.Exists(Path.Combine(AppContext.BaseDirectory, "testsettings.json")) ||
-        !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("TEST_API_KEY"));
-
-    /// <summary>
-    /// Skips the calling test when no test configuration is present.
-    /// </summary>
-    public static void SkipUnlessConfigured()
-    {
-        Assert.SkipUnless(IsConfigured,
-            "No test configuration: add testsettings.json (see testsettings.template.json) or set TEST_API_KEY.");
-    }
-
-    /// <summary>
     /// Loads test configuration from testsettings.json or environment variables
     /// </summary>
     private static TestConfiguration Load()
