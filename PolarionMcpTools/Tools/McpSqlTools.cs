@@ -143,9 +143,8 @@ public sealed class McpSqlTools
 
                 if (McpTools.IsBareQueryFailed(errorMsg))
                 {
-                    return "ERROR: (1054) Polarion rejected the SQL or returned no detail. " +
-                           "Try loosening the WHERE clause; if it still fails, check the column and " +
-                           $"table names. Query: '{luceneQuery}'";
+                    return "ERROR: (1054) The query failed and Polarion returned no detail. " +
+                           $"Check the column and table names. Query: '{luceneQuery}'";
                 }
 
                 return $"ERROR: (1054) Failed to search work items. Error: {errorMsg}";
