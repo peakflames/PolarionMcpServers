@@ -100,6 +100,12 @@ public sealed partial class McpTools
             {
                 var errorMessage = rowsResult.Errors.First().Message;
 
+                // At HEAD the revision causes below do not apply: the document itself is missing.
+                if (revisionNumber == "-1")
+                {
+                    return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}'. Error: {errorMessage}";
+                }
+
                 if (errorMessage.Contains("UnresolvableObjectException", StringComparison.OrdinalIgnoreCase))
                 {
                     return $"ERROR: (1044) The document '{space}/{documentId}' could not be found at revision '{revisionNumber}'. " +

@@ -208,6 +208,34 @@ public sealed class RevisionResolutionTests
     }
 
     [Fact]
+    public async Task MissingDocument_AtHead_Returns1044WithoutRevisionCauses()
+    {
+        var (tool, client) = NewTool();
+        client.Setup(c => c.GetModuleWorkItemsAsync(It.Is<string>(u => u == ThisDocumentUri), null, true, null))
+            .ReturnsAsync(Result.Fail<ModuleWorkItem[]>("UnresolvableObjectException: no such module"));
+
+        var result = await tool.GetWorkItemsInModule("MySpace", "MyDoc");
+
+        result.Should().StartWith("ERROR: (1044) Failed to fetch work items from module 'MySpace/MyDoc'.");
+        result.Should().Contain("UnresolvableObjectException");
+        result.Should().NotContain("Common causes");
+    }
+
+    [Fact]
+    public async Task MissingDocument_AtRevision_Returns1044WithRevisionCauses()
+    {
+        var (tool, client) = NewTool();
+        SetupBaselineQuery(client, "id:900002");
+        client.Setup(c => c.GetModuleWorkItemsAsync(It.Is<string>(u => u == $"{ThisDocumentUri}%900002"), null, true, null))
+            .ReturnsAsync(Result.Fail<ModuleWorkItem[]>("UnresolvableObjectException: no such module"));
+
+        var result = await tool.GetWorkItemsInModule("MySpace", "MyDoc", revision: "900002");
+
+        result.Should().StartWith("ERROR: (1044) The document 'MySpace/MyDoc' could not be found at revision '900002'.");
+        result.Should().Contain("Common causes");
+    }
+
+    [Fact]
     public async Task BaselineLookup_Failure_ReturnsCode111()
     {
         var (tool, client) = NewTool();
