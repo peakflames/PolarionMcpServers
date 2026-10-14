@@ -20,6 +20,8 @@ public sealed class StubPolarionClientFactory : IPolarionClientFactory
 
     public string? ProjectId => "Starlight_Main";
 
+    public string? PolarionProjectId => "Starlight_Main";
+
     public Task<Result<IPolarionClient>> CreateClientAsync()
         => Task.FromResult(Result.Ok(_client));
 }

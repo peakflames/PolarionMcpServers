@@ -28,6 +28,11 @@ namespace PolarionMcpServer
         // Public property to get the projectId from route data
         public string? ProjectId => null;
 
+        // Set per request: the stdio factory is registered as scoped (Program.cs).
+        private string? _polarionProjectId;
+
+        public string? PolarionProjectId => _polarionProjectId;
+
         [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
         public async Task<Result<IPolarionClient>> CreateClientAsync()
         {
@@ -92,7 +97,9 @@ namespace PolarionMcpServer
                 return Result.Fail($"Failed to create Polarion client via factory for alias '{selectedConfig.ProjectUrlAlias}': {errorMessage}");
             }
 
-            _logger.LogDebug("Successfully created new Polarion client for server: {ServerUrl} (Alias: {Alias})", 
+            _polarionProjectId = clientConfig.ProjectId;
+
+            _logger.LogDebug("Successfully created new Polarion client for server: {ServerUrl} (Alias: {Alias})",
                 clientConfig.ServerUrl, selectedConfig.ProjectUrlAlias);
             return clientResult.Value;
         }
