@@ -149,7 +149,8 @@ public sealed partial class McpTools
             if (workItems == null || workItems.Length == 0)
             {
                 return $"No work items matching '{searchQuery}' found in project. " +
-                       $"Lucene query used: {luceneQuery}";
+                       $"Lucene query used: {luceneQuery}" +
+                       UnqualifiedDocumentIdHint(searchQuery);
             }
 
             // Format and return results
@@ -280,6 +281,22 @@ public sealed partial class McpTools
     // (category.KEY, linkedWorkItems.role, etc.) that vary per-project.
     private static readonly Regex FieldScopedRegex =
         new(@"(^|\s)[A-Za-z_][A-Za-z0-9_.]*:[^\s/]", RegexOptions.Compiled);
+
+    // A document.id: filter whose value has no '/', quoted or bare. Polarion needs the
+    // "space/docId" form; a bare docId silently matches nothing.
+    private static readonly Regex UnqualifiedDocumentIdRegex =
+        new(@"(?<![A-Za-z0-9_.])document\.id:\s*(?:""[^""/]*""|[^\s""/()]+)(?=[\s)]|$)",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// Returns a hint to append to an empty result when the query filters on <c>document.id:</c>
+    /// without the space-qualified form, or an empty string when the hint does not apply.
+    /// </summary>
+    internal static string UnqualifiedDocumentIdHint(string query)
+        => !string.IsNullOrWhiteSpace(query) && UnqualifiedDocumentIdRegex.IsMatch(query)
+            ? " Hint: document.id needs the space-qualified form, e.g. document.id:\"<space>/<docId>\"; " +
+              "a bare document ID matches nothing."
+            : string.Empty;
 
     /// <summary>
     /// Detects whether a search string embeds a Polarion <c>SQL:(...)</c> filter, which
