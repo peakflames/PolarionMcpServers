@@ -21,7 +21,7 @@ public sealed partial class McpTools
                      "'voltage AND sensor' (both terms required), '\"voltage regulator\"' (exact phrase).")]
         string searchQuery,
 
-        [Description("Document revision number. Use '-1' for latest revision.")]
+        [Description("Document revision (number), '-1' for latest, or a baseline name or ID.")]
         string revision = "-1")
     {
         if (string.IsNullOrWhiteSpace(space))
@@ -50,8 +50,8 @@ public sealed partial class McpTools
             return "ERROR: (104) documentId contains characters that are not permitted (single-quote, semicolon, or comment tokens).";
         }
 
-        // revision must be "-1" (latest) or a positive integer.
-        if (!IsValidRevision(revision))
+        // A number-like revision must be "-1" (latest) or a positive integer. Baseline names and IDs are resolved after the client exists.
+        if (!IsBaselineReference(revision) && !IsValidRevision(revision))
         {
             return "ERROR: (105) Revision must be '-1' for the latest revision or a positive integer revision ID.";
         }
@@ -68,10 +68,18 @@ public sealed partial class McpTools
 
         try
         {
+            var revisionResult = await ResolveRevisionAsync(polarionClient, revision, clientFactory.PolarionProjectId, space, documentId);
+            if (revisionResult.IsFailed)
+            {
+                return revisionResult.Errors.First().Message;
+            }
+
+            var revisionNumber = revisionResult.Value;
+
             // Get all work items from the module, using revision-aware API when needed
             WorkItem[] allWorkItems;
 
-            if (revision == "-1")
+            if (revisionNumber == "-1")
             {
                 // Latest revision - use standard query
                 var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(
@@ -92,7 +100,7 @@ public sealed partial class McpTools
                 var workItemsResult = await polarionClient.GetWorkItemsByModuleRevisionAsync(
                     space,
                     documentId,
-                    revision);
+                    revisionNumber);
 
                 if (workItemsResult.IsFailed)
                 {
@@ -129,7 +137,7 @@ public sealed partial class McpTools
             }
 
             var result = new StringBuilder();
-            var documentRevisionNumber = revision == "-1" ? "Latest" : revision;
+            var documentRevisionNumber = revisionNumber == "-1" ? "Latest" : revisionNumber;
             result.AppendLine($"# Search Results for Polarion Work Items");
             result.AppendLine();
             result.AppendLine($"- **Space**: {space}");

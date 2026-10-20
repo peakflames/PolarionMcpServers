@@ -5,8 +5,8 @@ public sealed partial class McpTools
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
     [McpServerTool(Name = "get_workitems_in_module"),
      Description(
-         "Query work items from a Polarion module/document using SQL against the REL_MODULE_WORKITEM relationship. " +
-         "This retrieves work items that belong to the specified document. " +
+         "Query work items from a Polarion module/document. " +
+         "Pinned references show their pinned revision. Unresolvable references are reported with their URIs. " +
          "Optionally filter by work item types. " +
          "Supports querying historical document revisions using the revision parameter."
      )]
@@ -17,10 +17,10 @@ public sealed partial class McpTools
         [Description("The document ID within the space.")]
         string documentId,
 
-        [Description("Optional comma-separated list of work item types to filter (e.g., 'requirement,testCase'). Leave empty for all types. NOTE: Type filtering only works for current revision (revision='-1').")]
+        [Description("Optional comma-separated list of work item types to filter (e.g., 'requirement,testCase'). Leave empty for all types.")]
         string? itemTypes = null,
 
-        [Description("Document revision. Use '-1' for latest revision. For historical revisions, use a document baseline revision number from document history.")]
+        [Description("Document revision (number), '-1' for latest, or a baseline name or ID.")]
         string revision = "-1")
     {
         if (string.IsNullOrWhiteSpace(space))
@@ -33,15 +33,14 @@ public sealed partial class McpTools
             return "ERROR: (101) Document ID cannot be empty.";
         }
 
-        // revision must be "-1" (latest) or a positive integer (baseline revision ID).
-        // An arbitrary string here reaches the Polarion SOAP layer and could produce
-        // unexpected query shapes.
-        if (!IsValidRevision(revision))
+        // A number-like revision must be "-1" or a positive integer. Anything else is a baseline
+        // name or ID and is resolved after the client exists.
+        if (!IsBaselineReference(revision) && !IsValidRevision(revision))
         {
             return "ERROR: (102) Revision must be '-1' for the latest revision or a positive integer baseline revision ID.";
         }
 
-        // The SDK string-interpolates space and documentId directly into SQL; block injection chars.
+        // space and documentId are embedded in Polarion URIs and queries; block injection chars.
         if (!IsSafeForPolarionPathParam(space))
         {
             return "ERROR: (103) space contains characters that are not permitted (single-quote, semicolon, or comment tokens).";
@@ -78,68 +77,59 @@ public sealed partial class McpTools
                 typeList = itemTypes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
             }
 
-            var isHistoricalQuery = revision != "-1";
-            WorkItem[] workItems;
-            Dictionary<string, (string Revision, string HeadRevision, bool IsHistorical)>? revisionMetadata = null;
-
-            if (isHistoricalQuery)
+            var revisionResult = await ResolveRevisionAsync(polarionClient, revision, clientFactory.PolarionProjectId, space, documentId);
+            if (revisionResult.IsFailed)
             {
-                // Historical revision - use baseline revision API
-                // Note: Type filtering is not supported for historical queries (documented in parameter description)
-
-                var workItemsResult = await polarionClient.GetWorkItemsByModuleRevisionAsync(
-                    space,
-                    documentId,
-                    revision);
-
-                if (workItemsResult.IsFailed)
-                {
-                    var errorMessage = workItemsResult.Errors.First().Message;
-
-                    if (errorMessage.Contains("UnresolvableObjectException", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return $"ERROR: (1044) The document '{space}/{documentId}' could not be found at revision '{revision}'. " +
-                               $"This typically means the revision number is invalid for this document. " +
-                               $"Common causes:\n" +
-                               $"  1. The revision number is a work item revision, not a document baseline revision\n" +
-                               $"  2. The document did not exist at the specified revision\n" +
-                               $"  3. The document has not been modified since before the specified revision\n\n" +
-                               $"To find valid document revisions, use get_document_revision_history.";
-                    }
-
-                    return $"ERROR: (1044) Failed to fetch work items. Error: {errorMessage}";
-                }
-
-                var wiInfoArray = workItemsResult.Value;
-                workItems = wiInfoArray.Select(wi => wi.WorkItem).ToArray();
-
-                // Store revision metadata for output formatting
-                revisionMetadata = new Dictionary<string, (string, string, bool)>();
-                foreach (var wiInfo in wiInfoArray)
-                {
-                    if (wiInfo?.WorkItem?.id != null)
-                    {
-                        revisionMetadata[wiInfo.WorkItem.id] = (wiInfo.Revision, wiInfo.HeadRevision, wiInfo.IsHistorical);
-                    }
-                }
-            }
-            else
-            {
-                // Current revision - use standard query with type filtering support
-                var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(
-                    space,
-                    documentId,
-                    typeList);
-
-                if (workItemsResult.IsFailed)
-                {
-                    return $"ERROR: (1044) Failed to fetch work items. Error: {workItemsResult.Errors.First().Message}";
-                }
-
-                workItems = workItemsResult.Value;
+                return revisionResult.Errors.First().Message;
             }
 
-            if (workItems is null || workItems.Length == 0)
+            var revisionNumber = revisionResult.Value;
+
+            var projectId = clientFactory.PolarionProjectId;
+            if (string.IsNullOrEmpty(projectId))
+            {
+                return "ERROR: (114) Polarion project ID is not available for this configuration.";
+            }
+
+            var uri = revisionNumber == "-1"
+                ? ModuleUri.BuildHeadModuleUri(projectId, space, documentId)
+                : PolarionUriParser.BuildModuleUriWithRevision(projectId, space, documentId, revisionNumber);
+
+            var rowsResult = await polarionClient.GetModuleWorkItemsAsync(uri, null, true, null);
+            if (rowsResult.IsFailed)
+            {
+                var errorMessage = rowsResult.Errors.First().Message;
+
+                // At HEAD the revision causes below do not apply: the document itself is missing.
+                if (revisionNumber == "-1")
+                {
+                    return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}'. Error: {errorMessage}";
+                }
+
+                if (errorMessage.Contains("UnresolvableObjectException", StringComparison.OrdinalIgnoreCase))
+                {
+                    return $"ERROR: (1044) The document '{space}/{documentId}' could not be found at revision '{revisionNumber}'. " +
+                           $"This typically means the revision number is invalid for this document. " +
+                           $"Common causes:\n" +
+                           $"  1. The revision number is a work item revision, not a document baseline revision\n" +
+                           $"  2. The document did not exist at the specified revision\n\n" +
+                           $"To find valid document revisions, use get_document_revision_history.";
+                }
+
+                return $"ERROR: (1044) Failed to fetch work items. Error: {errorMessage}";
+            }
+
+            var rows = rowsResult.Value ?? Array.Empty<ModuleWorkItem>();
+
+            var unresolved = rows.Where(r => r.IsUnresolvable).ToList();
+
+            // Type filtering applies to resolved rows only; unresolvable rows carry no type.
+            var resolved = rows
+                .Where(r => !r.IsUnresolvable && r.WorkItem is not null)
+                .Where(r => typeList is null || typeList.Count == 0 || typeList.Contains(r.WorkItem.type?.id ?? string.Empty))
+                .ToList();
+
+            if (resolved.Count == 0 && unresolved.Count == 0)
             {
                 return $"No work items found in module '{space}/{documentId}'.";
             }
@@ -150,63 +140,34 @@ public sealed partial class McpTools
             result.AppendLine($"- **Space**: {space}");
             result.AppendLine($"- **Document ID**: {documentId}");
 
-            if (isHistoricalQuery)
+            if (revisionNumber != "-1")
             {
-                result.AppendLine($"- **Revision**: {revision}");
+                result.AppendLine($"- **Revision**: {revisionNumber}");
             }
 
-            if (typeList != null && typeList.Count > 0 && !isHistoricalQuery)
+            if (typeList != null && typeList.Count > 0)
             {
                 result.AppendLine($"- **Filtered Types**: {string.Join(", ", typeList)}");
             }
 
-            result.AppendLine($"- **Total Work Items**: {workItems.Length}");
-
-            if (isHistoricalQuery && revisionMetadata != null)
-            {
-                var historicalCount = revisionMetadata.Values.Count(m => m.IsHistorical);
-                var currentCount = workItems.Length - historicalCount;
-                result.AppendLine($"- **Historical Items** (different from HEAD): {historicalCount}");
-                result.AppendLine($"- **Current Items** (same as HEAD): {currentCount}");
-            }
-
+            result.AppendLine($"- **Total Work Items**: {resolved.Count}");
+            result.AppendLine($"- **Unresolvable References**: {unresolved.Count}");
             result.AppendLine();
 
-            foreach (var workItem in workItems)
+            foreach (var row in resolved)
             {
-                if (workItem is null)
-                {
-                    continue;
-                }
-
+                var workItem = row.WorkItem;
                 var lastUpdated = workItem.updatedSpecified ? workItem.updated.ToString("yyyy-MM-dd HH:mm:ss") : "N/A";
 
-                if (isHistoricalQuery && revisionMetadata != null && workItem.id != null && revisionMetadata.TryGetValue(workItem.id, out var metadata))
-                {
-                    // Historical query - show revision status
-                    var revisionStatus = metadata.IsHistorical ? "HISTORICAL" : "CURRENT";
-                    result.AppendLine($"## WorkItem (id={workItem.id ?? "N/A"}, type={workItem.type?.id ?? "N/A"}, status={revisionStatus})");
-                    result.AppendLine();
-                    result.AppendLine($"- **Revision**: {metadata.Revision} (HEAD: {metadata.HeadRevision})");
-                }
-                else
-                {
-                    // Current query - use original format
-                    result.AppendLine($"## WorkItem (id={workItem.id ?? "N/A"}, type={workItem.type?.id ?? "N/A"}, lastUpdated={lastUpdated})");
-                    result.AppendLine();
-                }
-
+                result.AppendLine($"## WorkItem (id={workItem.id ?? "N/A"}, type={workItem.type?.id ?? "N/A"}, lastUpdated={lastUpdated})");
+                result.AppendLine();
                 result.AppendLine($"- **Outline Number**: {workItem.outlineNumber ?? "N/A"}");
                 result.AppendLine($"- **Title**: {workItem.title ?? "N/A"}");
                 result.AppendLine($"- **Status**: {workItem.status?.id ?? "N/A"}");
 
-                if (!isHistoricalQuery)
+                if (row.IsPinned)
                 {
-                    // Only show lastUpdated for current queries (already shown above for current queries)
-                }
-                else
-                {
-                    result.AppendLine($"- **Last Updated**: {lastUpdated}");
+                    result.AppendLine($"- **Pinned Revision**: {row.Revision}");
                 }
 
                 result.AppendLine();
@@ -219,6 +180,19 @@ public sealed partial class McpTools
                     result.AppendLine(markdown);
                     result.AppendLine();
                 }
+            }
+
+            if (unresolved.Count > 0)
+            {
+                result.AppendLine("## Unresolvable References");
+                result.AppendLine();
+
+                foreach (var row in unresolved)
+                {
+                    result.AppendLine($"- {row.Uri}");
+                }
+
+                result.AppendLine();
             }
 
             return result.ToString();
