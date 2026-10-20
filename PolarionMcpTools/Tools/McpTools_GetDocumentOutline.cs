@@ -5,7 +5,7 @@ public sealed partial class McpTools
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
     [McpServerTool(Name = "get_document_outline"),
      Description("Gets all section headings (table of contents) within a Polarion Document. " +
-                 "Returns a Markdown document of only headings, ordered by outline number.")]
+                 "Returns a Markdown document of only headings, in document order.")]
     public async Task<string> GetDocumentOutline(
         [Description("The Polarion space name (e.g., 'MySpace').")]
         string space,
