@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-20
+
+### Changed
+
+- `search_workitems` appends a hint to an empty result when the query filters on `document.id:` without the space-qualified form, since a bare document ID matches nothing
+
 ## [0.19.0] - 2026-10-20
 
 ### Changed
@@ -589,7 +595,8 @@ Refactor MCP server architecture and consolidate configuration
 
 Initial release
 
-[Unreleased]: https://github.com/peakflames/PolarionMcpServers/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/peakflames/PolarionMcpServers/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.16.0...v0.17.0
