@@ -6,6 +6,38 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-20
+
+### Changed
+
+- Upgraded the Polarion SDK to 0.4.1. Document reads (`get_workitems_in_module`, `get_document_outline`, `get_document_section`, `search_in_document`, and the REST document work-items route) now use `getModuleWorkItems`:
+  - `get_workitems_in_module` returns items in document order
+  - Work items pinned to a revision show their pinned values, and pinned items that were later deleted are included. `get_workitems_in_module` also lists the pinned revisions and reports unresolvable references with a count and their URIs
+  - An empty document returns an empty result instead of error 1044, and a document that does not exist fails with error 1044 naming the document, followed by the underlying Polarion `UnresolvableObjectException`
+  - `itemTypes` is applied after the whole document is fetched, so a filtered read of a large document takes about as long as an unfiltered one
+  - Reads of a document at a revision, and of a branched document at HEAD, make fewer round trips
+- `itemTypes` on `get_workitems_in_module` applies to revision reads as well as HEAD reads
+- The `revision` parameter of `get_workitems_in_module`, `get_document_outline`, `get_document_section`, and `search_in_document` accepts a baseline name or ID, matched against baselines of that document only. The REST API still accepts revision numbers only.
+
+### Security
+
+- `list_documents` validates `titleFilter` before it reaches the SDK, rejecting `'`, `;`, `--`, `/*`, `*/`, `%`, `\`, and values longer than 256 characters
+- `get_workitem`, `get_workitem_history`, and `get_workitem_details` reject malformed work item IDs (anything other than a letter or digit followed by letters, digits, `_`, or `-`, up to 64 characters), and `get_workitem` rejects invalid revisions
+- Every REST `/workitems/{workitemId}` route returns `400` for a malformed work item ID
+- Document tools and the REST document work-items route reject revision `0`, signed values, and non-ASCII digits; only `-1` or a positive integer is accepted
+
+### Fixed
+
+- `search_workitems_sql` no longer rejects `ANY (...)`, `LIKE (...)`, and `ILIKE (...)` as disallowed functions
+- `search_workitems` and `search_workitems_sql` classify exceptions mentioning `SendTimeout` or `TimeoutException` as timeouts (1049 / 1056), matching the failed-result path
+- `get_document_info` validates `space` and `documentId` before doing any other work
+- Document outline and section output keeps Polarion's document order instead of re-sorting by outline number
+- Error 1044 from `get_workitems_in_module` no longer lists a third cause that does not apply to revision reads
+- Search error hints show the space-qualified `document.id` form, for example `document.id:"MySpace/MyDoc"`
+- `search_workitems_sql` describes zero-row results as an empty result, error 1053 as Polarion rejecting the SQL with its message, and error 1054 as a failed query with Polarion's message when it gives one
+- `MaxReceivedMessageSize` in `SessionConfig` (optional, default unset) now reaches the Polarion client for remote projects. Before this fix, the setting was dropped.
+- `get_document_outline` reads the document at the requested revision. Before this fix, it always read the latest revision and only labeled the output with the requested one.
+
 ## [0.18.0] - 2026-09-30
 
 ### Added
@@ -557,7 +589,8 @@ Refactor MCP server architecture and consolidate configuration
 
 Initial release
 
-[Unreleased]: https://github.com/peakflames/PolarionMcpServers/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/peakflames/PolarionMcpServers/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.17.0...v0.18.0
 [0.17.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.15.0...v0.16.0

@@ -15,6 +15,12 @@ public sealed partial class McpTools
             return "ERROR: (103) space contains characters that are not permitted (single-quote, semicolon, or comment tokens).";
         }
 
+        // The SDK places titleFilter inside a SQL pattern; block injection and pattern chars.
+        if (!string.IsNullOrWhiteSpace(titleFilter) && !IsSafeForPolarionTitleFilter(titleFilter))
+        {
+            return $"ERROR: (108) titleFilter contains characters that are not permitted (single-quote, semicolon, comment tokens, '%', or backslash) or exceeds {MaxTitleFilterLength} characters.";
+        }
+
         await using var scope = _serviceProvider.CreateAsyncScope();
         var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
         var clientResult = await clientFactory.CreateClientAsync();

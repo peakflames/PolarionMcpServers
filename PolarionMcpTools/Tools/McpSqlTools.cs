@@ -35,8 +35,9 @@ public sealed class McpSqlTools
                  "Writes/DDL, statement stacking (';'), SQL comments, parentheses inside string literals, double-quoted " +
                  "identifiers, '$', '\\', prefixed literals (E'', N''), and any function other than LOWER, UPPER, " +
                  "COALESCE, CAST, COUNT, LENGTH, TRIM, SUBSTRING are rejected. " +
-                 "Polarion returns the same bare 'Query failed' (error 1054) when zero rows match as when the SQL is " +
-                 "rejected; if you get it, loosen the WHERE clause before assuming the SQL is wrong. " +
+                 "Zero matching rows return an empty result. Error 1053 means Polarion rejected the SQL and includes " +
+                 "its message (for example the database error). Error 1054 means the query failed for another reason; " +
+                 "Polarion's message is included when it gives one. " +
                  "Results are always limited to this endpoint's project: the server intersects every query with the " +
                  "project id. This tool runs under the same Polarion credential and the same project access checks as " +
                  "every other tool, and is only available when the server operator has enabled it.")]
@@ -142,9 +143,8 @@ public sealed class McpSqlTools
 
                 if (McpTools.IsBareQueryFailed(errorMsg))
                 {
-                    return "ERROR: (1054) Polarion returned no detail: either zero rows matched or the SQL was " +
-                           "rejected. Try loosening the WHERE clause; if it still fails, check the column and " +
-                           $"table names. Query: '{luceneQuery}'";
+                    return "ERROR: (1054) The query failed and Polarion returned no detail. " +
+                           $"Check the column and table names. Query: '{luceneQuery}'";
                 }
 
                 return $"ERROR: (1054) Failed to search work items. Error: {errorMsg}";
@@ -160,7 +160,7 @@ public sealed class McpSqlTools
         }
         catch (Exception ex)
         {
-            if (ex is TimeoutException || ex.Message.Contains("timed out", StringComparison.OrdinalIgnoreCase))
+            if (ex is TimeoutException || McpTools.IsTimeoutError(ex.Message))
             {
                 return $"ERROR: (1056) SQL query timed out before Polarion returned results. " +
                        $"Add more selective WHERE conditions to reduce the result set. Query: '{luceneQuery}'";

@@ -34,6 +34,22 @@ try:
 except ImportError:
     pass
 
+# The MCP Python client caps a single SSE event at 1 MiB (httpx2 default), so tool replies
+# for large documents (about 2 MB for 2,800 work items) fail with "SSE stream ended without
+# a response". Raise the cap for this dev client only. Skipped when the installed client has
+# no such parameter.
+MCP_MAX_SSE_EVENT_BYTES = 64 * 1024 * 1024
+if FASTMCP_AVAILABLE:
+    try:
+        import functools
+        import inspect
+        import mcp.client.streamable_http as _mcp_streamable_http
+        if "max_event_size" in inspect.signature(_mcp_streamable_http.EventSource).parameters:
+            _mcp_streamable_http.EventSource = functools.partial(
+                _mcp_streamable_http.EventSource, max_event_size=MCP_MAX_SSE_EVENT_BYTES)
+    except (ImportError, AttributeError, TypeError, ValueError):
+        pass
+
 # Optional: python-dotenv for .env support
 try:
     from dotenv import load_dotenv

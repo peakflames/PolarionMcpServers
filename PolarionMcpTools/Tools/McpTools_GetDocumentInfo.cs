@@ -22,10 +22,6 @@ public sealed partial class McpTools
             return "ERROR: 'documentId' parameter cannot be empty or whitespace.";
         }
 
-        var documentLocation = $"{space}/{documentId}";
-
-        var sb = new StringBuilder();
-
         // The SDK string-interpolates space and documentId directly into SQL; block injection chars.
         if (!IsSafeForPolarionPathParam(space))
         {
@@ -36,6 +32,10 @@ public sealed partial class McpTools
         {
             return "ERROR: (104) documentId contains characters that are not permitted (single-quote, semicolon, or comment tokens).";
         }
+
+        var documentLocation = $"{space}/{documentId}";
+
+        var sb = new StringBuilder();
 
         await using (var scope = _serviceProvider.CreateAsyncScope())
         {

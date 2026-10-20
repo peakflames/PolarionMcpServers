@@ -5,7 +5,7 @@ public sealed partial class McpTools
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
     [McpServerTool(Name = "get_document_outline"),
      Description("Gets all section headings (table of contents) within a Polarion Document. " +
-                 "Returns a Markdown document of only headings, ordered by outline number.")]
+                 "Returns a Markdown document of only headings, in document order.")]
     public async Task<string> GetDocumentOutline(
         [Description("The Polarion space name (e.g., 'MySpace').")]
         string space,
@@ -13,7 +13,7 @@ public sealed partial class McpTools
         [Description("The document ID within the space (e.g., 'MyDocument').")]
         string documentId,
 
-        [Description("Document revision. Use '-1' for latest revision.")]
+        [Description("Document revision (number), '-1' for latest, or a baseline name or ID.")]
         string revision = "-1")
     {
         if (string.IsNullOrWhiteSpace(space))
@@ -37,8 +37,8 @@ public sealed partial class McpTools
             return "ERROR: (104) documentId contains characters that are not permitted (single-quote, semicolon, or comment tokens).";
         }
 
-        // revision must be "-1" (latest) or a non-negative integer.
-        if (string.IsNullOrEmpty(revision) || (revision != "-1" && !revision.All(char.IsDigit)))
+        // A number-like revision must be "-1" (latest) or a positive integer. Baseline names and IDs are resolved after the client exists.
+        if (!IsBaselineReference(revision) && !IsValidRevision(revision))
         {
             return "ERROR: (105) Revision must be '-1' for the latest revision or a positive integer revision ID.";
         }
@@ -55,18 +55,58 @@ public sealed partial class McpTools
 
         try
         {
-            // Get all work items from the module using SQL relationship query
-            var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(
-                space,
-                documentId,
-                null); // Get all types
-
-            if (workItemsResult.IsFailed)
+            var revisionResult = await ResolveRevisionAsync(polarionClient, revision, clientFactory.PolarionProjectId, space, documentId);
+            if (revisionResult.IsFailed)
             {
-                return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}'. Error: {workItemsResult.Errors.First().Message}";
+                return revisionResult.Errors.First().Message;
             }
 
-            var allWorkItems = workItemsResult.Value;
+            var revisionNumber = revisionResult.Value;
+
+            // Get all work items from the module, using revision-aware API when needed
+            WorkItem[] allWorkItems;
+
+            if (revisionNumber == "-1")
+            {
+                // Latest revision - use standard query
+                var workItemsResult = await polarionClient.QueryWorkItemsInModuleAsync(
+                    space,
+                    documentId,
+                    null); // Get all types
+
+                if (workItemsResult.IsFailed)
+                {
+                    return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}'. Error: {workItemsResult.Errors.First().Message}";
+                }
+
+                allWorkItems = workItemsResult.Value;
+            }
+            else
+            {
+                // Specific revision - use baseline revision API
+                var workItemsResult = await polarionClient.GetWorkItemsByModuleRevisionAsync(
+                    space,
+                    documentId,
+                    revisionNumber);
+
+                if (workItemsResult.IsFailed)
+                {
+                    var errorMessage = workItemsResult.Errors.First().Message;
+
+                    if (errorMessage.Contains("UnresolvableObjectException", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return $"ERROR: (1044) Document '{space}/{documentId}' not found at revision '{revision}'. " +
+                               "Use get_document_revision_history to find valid revision numbers.";
+                    }
+
+                    return $"ERROR: (1044) Failed to fetch work items from module '{space}/{documentId}' at revision '{revision}'. Error: {errorMessage}";
+                }
+
+                allWorkItems = workItemsResult.Value
+                    .Where(wi => wi?.WorkItem != null)
+                    .Select(wi => wi.WorkItem)
+                    .ToArray();
+            }
             if (allWorkItems is null || allWorkItems.Length == 0)
             {
                 return $"No work items found in module '{space}/{documentId}'.";
@@ -76,7 +116,6 @@ public sealed partial class McpTools
             var headings = allWorkItems
                 .Where(wi => wi?.type?.id != null &&
                              wi.type.id.Equals("heading", StringComparison.OrdinalIgnoreCase))
-                .OrderBy(wi => wi.outlineNumber ?? "")
                 .ToList();
 
             if (headings.Count == 0)
@@ -85,7 +124,7 @@ public sealed partial class McpTools
             }
 
             var result = new StringBuilder();
-            var documentRevisionNumber = revision == "-1" ? "Latest" : revision;
+            var documentRevisionNumber = revisionNumber == "-1" ? "Latest" : revisionNumber;
             result.AppendLine($"# Document Outline: {documentId}");
             result.AppendLine();
             result.AppendLine($"- **Space**: {space}");

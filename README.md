@@ -11,7 +11,7 @@ MCP Tools are available for Polarion work items, including:
 - `get_workitem`: Gets the text content of a WorkItem. Optionally retrieves a specific revision.
 - `get_workitem_details`: Gets detailed information for WorkItems including standard fields, custom fields, and linked work items. Supports traceability with recursive link following.
 - `get_workitem_history`: Gets the revision history for a WorkItem including content at each revision.
-- `get_workitems_in_module`: Query work items from a Polarion module/document using SQL against the REL_MODULE_WORKITEM relationship.
+- `get_workitems_in_module`: Query work items from a Polarion module/document. Pinned references show their pinned revision, and unresolvable references are reported with their URIs.
 - `list_custom_fields`: Lists available custom fields for a specific WorkItem type.
 - `list_documents`: Lists all Documents in the Polarion Project. Optionally filter by space name and/or title.
 - `list_spaces`: Lists all Space names in the Polarion project.
@@ -163,6 +163,7 @@ The server uses a `PolarionProjects` array in `appsettings.json` to define one o
 | `Password`     | Password for the Polarion user. **(Consider secure alternatives)**    | Yes      | N/A     |
 | `ProjectId`    | The *actual* ID of the Polarion project to interact with.           | Yes      | N/A     |
 | `TimeoutSeconds` | Connection timeout in seconds.                                      | No       | `60`    |
+| `MaxReceivedMessageSize` | (Optional integer, bytes) Largest response the Polarion client accepts. Must be greater than zero when set. | No       | Unset (no cap, `int.MaxValue`) |
 
 ### Environment Variable Password Override
 
