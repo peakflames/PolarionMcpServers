@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+### Changed
+
+- `search_workitems` appends a hint to an empty result when the query filters on `document.id:` without the space-qualified form, since a bare document ID matches nothing
+
 ## [0.19.0] - 2026-10-20
 
 ### Changed
