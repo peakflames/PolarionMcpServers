@@ -30,6 +30,11 @@ namespace PolarionRemoteMcpServer
         // Public property to get the projectId from route data
         public string? ProjectId => _httpContextAccessor?.HttpContext?.GetRouteValue("projectId")?.ToString();
 
+        // Set per request: this factory is registered as scoped (Program.cs), so the field never crosses callers.
+        private string? _polarionProjectId;
+
+        public string? PolarionProjectId => _polarionProjectId;
+
         [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
         public async Task<Result<IPolarionClient>> CreateClientAsync()
         {
@@ -70,13 +75,9 @@ namespace PolarionRemoteMcpServer
             // Clone before applying a resolved credential — SessionConfig is a reference into the
             // singleton `List<PolarionProjectConfig>` (Program.cs), shared across every concurrent
             // request for this alias. Writing a per-caller credential into it in place would race
-            // with every other in-flight request for the same project.
-            var clientConfig = new PolarionClientConfiguration(
-                selectedConfig.SessionConfig.ServerUrl,
-                selectedConfig.SessionConfig.Username,
-                selectedConfig.SessionConfig.Password,
-                selectedConfig.SessionConfig.ProjectId,
-                selectedConfig.SessionConfig.TimeoutSeconds);
+            // with every other in-flight request for the same project. The clone keeps every
+            // property, including MaxReceivedMessageSize.
+            var clientConfig = CloneForCaller(selectedConfig.SessionConfig);
 
             // Shared mode (default) resolves to the same service-account credential clientConfig
             // was just cloned from — a no-op for today's behavior. Only HttpBroker mode (off unless
@@ -115,9 +116,14 @@ namespace PolarionRemoteMcpServer
                 return Result.Fail($"Failed to create Polarion client via factory for alias '{selectedConfig.ProjectUrlAlias}': {errorMessage}");
             }
 
-            _logger.LogDebug("Successfully created new Polarion client for server: {ServerUrl} (Alias: {Alias})", 
+            _logger.LogDebug("Successfully created new Polarion client for server: {ServerUrl} (Alias: {Alias})",
                 clientConfig.ServerUrl, selectedConfig.ProjectUrlAlias);
+            _polarionProjectId = clientConfig.ProjectId;
             return clientResult.Value;
         }
+
+        // Record copy: a new instance with every property carried over, so later per-caller
+        // writes to the clone never reach the shared source.
+        internal static PolarionClientConfiguration CloneForCaller(PolarionClientConfiguration source) => source with { };
     }
 }

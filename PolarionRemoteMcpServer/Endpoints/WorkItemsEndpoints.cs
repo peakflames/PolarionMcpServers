@@ -25,6 +25,20 @@ public static class WorkItemsEndpoints
     {
         var group = app.MapGroup("/polarion/rest/v1/projects/{projectId}");
 
+        // Reject malformed work item IDs on every /workitems/{workitemId} route before any handler
+        // resolves a project or creates a Polarion client.
+        group.AddEndpointFilter(async (context, next) =>
+        {
+            if (context.HttpContext.Request.RouteValues.TryGetValue("workitemId", out var raw) &&
+                raw is string value && !McpTools.IsValidWorkItemId(value))
+            {
+                return CreateErrorResponse("400", "Bad Request",
+                    "workitemId must start with a letter or digit and contain only letters, digits, underscores, or hyphens (at most 64 characters).");
+            }
+
+            return await next(context);
+        });
+
         group.MapGet("/workitems", SearchWorkItems)
             .RequireAuthorization(ApiScopes.PolarionRead);
         group.MapGet("/workitems/{workitemId}", GetWorkItem)
@@ -539,7 +553,7 @@ public static class WorkItemsEndpoints
                 {
                     return CreateErrorResponse("504", "Gateway Timeout",
                         "Search timed out before Polarion returned results. The query is likely too broad. " +
-                        "Narrow it with type:, status:, document.id:, or date filters.");
+                        "Narrow it with type:, status:, document.id:\"<space>/<docId>\", or date filters.");
                 }
 
                 if (classifyMsg.Contains("parse", StringComparison.OrdinalIgnoreCase))
@@ -615,7 +629,7 @@ public static class WorkItemsEndpoints
             {
                 return CreateErrorResponse("504", "Gateway Timeout",
                     "Search timed out before Polarion returned results. The query is likely too broad. " +
-                    "Narrow it with type:, status:, document.id:, or date filters.");
+                    "Narrow it with type:, status:, document.id:\"<space>/<docId>\", or date filters.");
             }
 
             return CreateErrorResponse("500", "Internal Server Error", ex.Message);

@@ -27,6 +27,8 @@ public sealed class FakePolarionClientFactory : IPolarionClientFactory
 
     public string? ProjectId => _httpContextAccessor.HttpContext?.GetRouteValue("projectId")?.ToString();
 
+    public string? PolarionProjectId => "Starlight_Main";
+
     [RequiresUnreferencedCode("Uses Polarion API which requires reflection")]
     public Task<Result<IPolarionClient>> CreateClientAsync() =>
         Task.FromResult(Result.Fail<IPolarionClient>("stub: no live Polarion connection in tests"));
