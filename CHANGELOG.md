@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+### Fixed
+
+- RBAC no longer denies a caller whose email is shared by several Polarion users, such as a person and the service accounts they own. The user whose ID matches the email's local part is selected, and the caller is still denied when no single user qualifies
+
 ## [0.20.0] - 2026-10-20
 
 ### Changed

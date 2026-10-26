@@ -6,8 +6,9 @@ namespace PolarionRemoteMcpServer.Rbac;
 
 /// <summary>
 /// Resolves an OAuth email claim to a Polarion user id via <c>ProjectWebService.getUsers()</c>,
-/// joining on the Polarion user's own <c>email</c> field — never the <c>id == local-part</c>
-/// convention, which holds for most accounts but breaks for aliased domains.
+/// joining on the Polarion user's own <c>email</c> field. The <c>id == local-part</c> convention holds
+/// for most accounts but breaks for aliased domains, so it is used only to choose among several users
+/// that share the same email (see <see cref="PolarionUserMatcher"/>).
 ///
 /// <c>getUsers()</c> is a server-wide operation with no project scope, so this authenticates using
 /// the default project's shared service account rather than the alias the caller happened to be
@@ -55,15 +56,6 @@ internal sealed class PolarionIdentityLookup : IIdentityLookup
             throw new IdentityLookupException("polarion_get_users_failed");
         }
 
-        var matches = usersResult.Value
-            .Where(u => string.Equals(u.email, claimValue, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        return matches.Count switch
-        {
-            0 => new IdentityResult(IdentityOutcome.NotFound, null),
-            1 => new IdentityResult(IdentityOutcome.Resolved, matches[0].id),
-            _ => new IdentityResult(IdentityOutcome.Ambiguous, null),
-        };
+        return PolarionUserMatcher.Match(usersResult.Value.Select(u => ((string?)u.id, (string?)u.email)), claimValue);
     }
 }
