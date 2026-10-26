@@ -100,6 +100,10 @@ behavior, deliberately):
   normalized** — resolving `alice+work@` to `alice@`'s Polarion user would grant one person another
   person's authority on a guess.
 
+When several Polarion users share the caller's email (for example a person and the service accounts
+they own), the one whose id equals the email's local part is selected. If no single user qualifies, the
+caller is denied.
+
 ### Deployment assumption: one Polarion server for identity lookup
 
 Resolving an identity claim value to a Polarion username always logs in using the **default**
@@ -179,7 +183,7 @@ Denies:
 
 | Reason | Meaning |
 |---|---|
-| `identity_unresolved` | The claim (or the `/userinfo` email field) simply wasn't present. |
+| `identity_unresolved` | The claim (or the `/userinfo` email field) was missing, matched no Polarion user, or matched several with none selected by the id tiebreak. |
 | `identity_no_bearer_token` | `IdentitySource=UserInfo`, but no captured bearer token was available to call `/userinfo` with. |
 | `identity_email_unverified` | `/userinfo` returned an email, but `email_verified` was not `true`. |
 | `identity_email_rejected_form` | The email failed the guardrails (plus-addressed, malformed, or otherwise not a canonical address) — rejected, not normalized. |
