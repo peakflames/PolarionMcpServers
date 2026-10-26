@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog 1.0.0](https://keepachangelog.com/en/1.
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-10-26
+
+### Fixed
+
+- RBAC no longer denies a caller whose email is shared by several Polarion users, such as a person and the service accounts they own. The user whose ID matches the email's local part is selected, and the caller is still denied when no single user qualifies
+
 ## [0.20.0] - 2026-10-20
 
 ### Changed
@@ -595,7 +601,8 @@ Refactor MCP server architecture and consolidate configuration
 
 Initial release
 
-[Unreleased]: https://github.com/peakflames/PolarionMcpServers/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/peakflames/PolarionMcpServers/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/peakflames/PolarionMcpServers/compare/v0.17.0...v0.18.0

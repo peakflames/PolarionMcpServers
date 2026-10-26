@@ -13,8 +13,8 @@ namespace PolarionRemoteMcpServer.Rbac.Caching;
 /// with a valid bearer token but no Polarion user costs one upstream call per tool call, and an
 /// agentic client retrying a denial becomes an unbounded request amplifier against shared production
 /// Polarion. 300s (the positive default) would fix that but deny a newly created user for five
-/// minutes. <c>Ambiguous</c> is a config fact (more than one Polarion user matches the same claim
-/// value), safe to cache at the positive TTL.
+/// minutes. <c>Ambiguous</c> is a config fact (more than one Polarion user matches the claim value and
+/// none is selected by the id tiebreak), safe to cache at the positive TTL.
 ///
 /// <see cref="StringComparer.Ordinal"/>, not <c>OrdinalIgnoreCase</c>: worst case is two cache
 /// entries for <c>Bob@</c>/<c>bob@</c> (harmless, just a duplicate upstream call), versus aliasing two
